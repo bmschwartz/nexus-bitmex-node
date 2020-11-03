@@ -24,15 +24,15 @@ from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATIO
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.order.constants import (
-    BINANCE_CREATE_ORDER_QUEUE,
-    BINANCE_CREATE_ORDER_CMD_KEY,
-    BINANCE_UPDATE_ORDER_QUEUE_PREFIX,
-    BINANCE_UPDATE_ORDER_CMD_KEY_PREFIX,
-    BINANCE_CANCEL_ORDER_QUEUE_PREFIX,
-    BINANCE_CANCEL_ORDER_CMD_KEY_PREFIX,
-    BINANCE_ORDER_CREATED_EVENT_KEY,
-    BINANCE_ORDER_UPDATED_EVENT_KEY,
-    BINANCE_ORDER_CANCELED_EVENT_KEY,
+    BITMEX_CREATE_ORDER_QUEUE,
+    BITMEX_CREATE_ORDER_CMD_KEY,
+    BITMEX_UPDATE_ORDER_QUEUE_PREFIX,
+    BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX,
+    BITMEX_CANCEL_ORDER_QUEUE_PREFIX,
+    BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX,
+    BITMEX_ORDER_CREATED_EVENT_KEY,
+    BITMEX_ORDER_UPDATED_EVENT_KEY,
+    BITMEX_ORDER_CANCELED_EVENT_KEY,
 )
 
 
@@ -40,8 +40,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
     _recv_order_channel: Channel
     _send_order_channel: Channel
 
-    _recv_binance_exchange: Exchange
-    _send_binance_exchange: Exchange
+    _recv_bitmex_exchange: Exchange
+    _send_bitmex_exchange: Exchange
 
     _create_order_queue: Queue
     _update_order_queue: Queue
@@ -77,15 +77,15 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def declare_queues(self):
         self._create_order_queue = await self._recv_order_channel.declare_queue(
-            BINANCE_CREATE_ORDER_QUEUE, durable=True
+            BITMEX_CREATE_ORDER_QUEUE, durable=True
         )
 
     async def declare_exchanges(self):
-        self._recv_binance_exchange = await self._recv_order_channel.declare_exchange(
+        self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-        self._send_binance_exchange = await self._send_order_channel.declare_exchange(
+        self._send_bitmex_exchange = await self._send_order_channel.declare_exchange(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
@@ -99,8 +99,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def _listen_to_create_order_queue(self):
         await self._create_order_queue.bind(
-            self._recv_binance_exchange,
-            BINANCE_CREATE_ORDER_CMD_KEY,
+            self._recv_bitmex_exchange,
+            BITMEX_CREATE_ORDER_CMD_KEY,
         )
 
         await self._create_order_queue.consume(
@@ -109,30 +109,30 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def _listen_to_update_order_queue(self, order_id: str) -> None:
         self._update_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BINANCE_UPDATE_ORDER_QUEUE_PREFIX}{order_id}",
+            f"{BITMEX_UPDATE_ORDER_QUEUE_PREFIX}{order_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-        router_key = f"{BINANCE_UPDATE_ORDER_CMD_KEY_PREFIX}{order_id}"
+        router_key = f"{BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX}{order_id}"
         self._update_order_routing_keys[order_id] = router_key
 
-        await self._update_order_queue.bind(self._recv_binance_exchange, router_key)
+        await self._update_order_queue.bind(self._recv_bitmex_exchange, router_key)
         await self._update_order_queue.consume(
             self.on_update_order_message, consumer_tag=self._update_order_consumer_tag
         )
 
     async def _listen_to_delete_order_queue(self, order_id: str) -> None:
         self._delete_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BINANCE_CANCEL_ORDER_QUEUE_PREFIX}{order_id}",
+            f"{BITMEX_CANCEL_ORDER_QUEUE_PREFIX}{order_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-        router_key = f"{BINANCE_CANCEL_ORDER_CMD_KEY_PREFIX}{order_id}"
+        router_key = f"{BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX}{order_id}"
         self._delete_order_routing_keys[order_id] = router_key
 
-        await self._delete_order_queue.bind(self._send_binance_exchange, router_key)
+        await self._delete_order_queue.bind(self._send_bitmex_exchange, router_key)
         await self._delete_order_queue.consume(
             self.on_delete_order_message, consumer_tag=self._delete_order_consumer_tag
         )
@@ -159,8 +159,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
                 correlation_id=message.correlation_id,
                 content_type="application/json",
             )
-            await self._send_binance_exchange.publish(
-                response, routing_key=BINANCE_ORDER_CREATED_EVENT_KEY
+            await self._send_bitmex_exchange.publish(
+                response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
             )
             message.ack()
 
@@ -185,14 +185,14 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
             if order_id:
                 response_payload.update({"orderId": order_id})
 
-            await self._send_binance_exchange.publish(
+            await self._send_bitmex_exchange.publish(
                 Message(
                     bytes(json.dumps(response_payload), "utf-8"),
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
                 ),
-                routing_key=BINANCE_ORDER_UPDATED_EVENT_KEY,
+                routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY,
             )
 
     async def on_delete_order_message(self, message: IncomingMessage):
@@ -218,12 +218,12 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
             if order_id:
                 response_payload.update({"orderId": order_id})
 
-            await self._send_binance_exchange.publish(
+            await self._send_bitmex_exchange.publish(
                 Message(
                     bytes(json.dumps(response_payload), "utf-8"),
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
                 ),
-                routing_key=BINANCE_ORDER_CANCELED_EVENT_KEY,
+                routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY,
             )

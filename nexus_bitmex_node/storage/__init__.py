@@ -73,13 +73,13 @@ class RedisDataStore(DataStore, BalanceEventListener, ExchangeEventListener):
         for k, v in data.items():
             data[k] = json.dumps(v)
 
-        await self._client.hmset_dict(f"binance:{client_key}:balances", data)
+        await self._client.hmset_dict(f"bitmex:{client_key}:balances", data)
 
     async def save_tickers(self, data: typing.Dict):
         for k, v in data.items():
             data[k] = json.dumps(v)
 
-        await self._client.hmset_dict(f"binance:tickers", data)
+        await self._client.hmset_dict(f"bitmex:tickers", data)
 
     async def save_position(self, client_key: str):
         pass
@@ -88,7 +88,7 @@ class RedisDataStore(DataStore, BalanceEventListener, ExchangeEventListener):
         pass
 
     async def get_balances(self, client_key: str):
-        return self._client.get(f"binance:{client_key}:balances", encoding="utf-8")
+        return self._client.get(f"bitmex:{client_key}:balances", encoding="utf-8")
 
     async def get_balance(self, client_key: str, symbol: str):
         pass

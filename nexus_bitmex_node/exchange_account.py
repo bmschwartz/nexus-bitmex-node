@@ -17,7 +17,7 @@ from nexus_bitmex_node.exceptions import InvalidApiKeysError
 class ExchangeAccount(BalanceEventEmitter):
     def __init__(self, loop, bus: EventBus, account_id: str, api_key: str, api_secret: str):
         """
-        Connect Binance exchange account
+        Connect Bitmex exchange account
         :param account_id
         :param api_key:
         :param api_secret:
@@ -52,7 +52,7 @@ class ExchangeAccount(BalanceEventEmitter):
     async def _connect_client(self):
         ccxt.bitmex({
         })
-        self._client = ccxt.binance(
+        self._client = ccxt.bitmex(
             {
                 "apiKey": self._api_key,
                 "secret": self._api_secret,
@@ -69,8 +69,8 @@ class ExchangeAccount(BalanceEventEmitter):
         await self._store_balances(balances["info"]["balances"])
 
     def _connect_to_socket_stream(self):
-        # self._websocket_manager = BinanceWebSocketApiManager(
-        #     exchange="binance.com", throw_exception_if_unrepairable=True
+        # self._websocket_manager = BitmexWebSocketApiManager(
+        #     exchange="bitmex.com", throw_exception_if_unrepairable=True
         # )
         self._create_streams()
 
@@ -120,10 +120,10 @@ class ExchangeAccountManager:
 
     async def connect(self, account_id: str, api_key: str, api_secret: str):
         """
-        Connect a Binance account with the given API keys
+        Connect a Bitmex account with the given API keys
         :param account_id: Identifies the user
-        :param api_key: Binance API Key
-        :param api_secret: Binance API Secret
+        :param api_key: Bitmex API Key
+        :param api_secret: Bitmex API Secret
         """
         await self.disconnect()
 
