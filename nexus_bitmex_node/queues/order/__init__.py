@@ -21,7 +21,7 @@ from nexus_bitmex_node.queues.order.helpers import (
     handle_update_order_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
-from nexus_bitmex_node.settings import BINANCE_EXCHANGE
+from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.order.constants import (
     BINANCE_CREATE_ORDER_QUEUE,
@@ -82,11 +82,11 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def declare_exchanges(self):
         self._recv_binance_exchange = await self._recv_order_channel.declare_exchange(
-            BINANCE_EXCHANGE, type=ExchangeType.TOPIC, durable=True
+            BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
         self._send_binance_exchange = await self._send_order_channel.declare_exchange(
-            BINANCE_EXCHANGE, type=ExchangeType.TOPIC, durable=True
+            BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
     async def _on_order_created(self, order_id: str) -> None:
