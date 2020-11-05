@@ -3,6 +3,8 @@ CREATE_ACCOUNT_CMD_KEY = "create_account_cmd"
 UPDATE_ACCOUNT_CMD_KEY = "update_account_cmd"
 DELETE_ACCOUNT_CMD_KEY = "delete_account_cmd"
 
+ACCOUNT_HEARTBEAT_KEY = "account_heartbeat"
+
 ACCOUNT_CREATED_EVENT_KEY = "account_created_event"
 ACCOUNT_UPDATED_EVENT_KEY = "account_updated_event"
 ACCOUNT_DELETED_EVENT_KEY = "account_deleted_event"

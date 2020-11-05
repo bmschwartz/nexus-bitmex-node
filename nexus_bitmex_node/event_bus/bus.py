@@ -10,7 +10,7 @@ class EventBus:
 
     async def publish(self, event_key, *args, **kwargs):
         """
-        Calls the callback methods listening to the `event_key` event
+        Asynchronously calls the callback methods listening to the `event_key` event
         :param event_key:
         :param args:
         :param kwargs:
@@ -18,6 +18,17 @@ class EventBus:
         """
         for cb in self._events[event_key]:
             await cb(*args, **kwargs)
+
+    def publish_sync(self, event_key, *args, **kwargs):
+        """
+        Synchronously calls the callback methods listening to the `event_key` event
+        :param event_key:
+        :param args:
+        :param kwargs:
+        :return:
+        """
+        for cb in self._events[event_key]:
+            cb(*args, **kwargs)
 
     def register(self, event_key, callback):
         """

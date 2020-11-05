@@ -8,3 +8,5 @@ class EventEmitter:
     async def emit(self, event_key, *args, **kwargs):
         await self._event_bus.publish(event_key, *args, **kwargs)
 
+    def emit_sync(self, event_key, *args, **kwargs):
+        self._event_bus.publish_sync(event_key, *args, **kwargs)

@@ -1,7 +1,10 @@
+import asyncio
 import json
+import datetime
 from json import JSONDecodeError
 from uuid import uuid4
 
+import typing
 from aio_pika import (
     Queue,
     Connection,
@@ -13,9 +16,9 @@ from aio_pika import (
     DeliveryMode,
 )
 
-from nexus_bitmex_node.event_bus import AccountEventEmitter, EventBus
+from nexus_bitmex_node.event_bus import AccountEventEmitter, EventBus, AccountEventListener
 from nexus_bitmex_node.exceptions import InvalidApiKeysError, WrongAccountError
-from nexus_bitmex_node.exchange_account import exchange_account_manager
+from nexus_bitmex_node.exchange_account import ExchangeAccountManager
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
 from .constants import (
@@ -28,6 +31,7 @@ from .constants import (
     BITMEX_ACCOUNT_CREATED_EVENT_KEY,
     BITMEX_ACCOUNT_DELETED_EVENT_KEY,
     BITMEX_ACCOUNT_UPDATED_EVENT_KEY,
+    BITMEX_HEARTBEAT_EVENT_KEY,
 )
 from .helpers import (
     handle_create_account_message,
@@ -36,7 +40,9 @@ from .helpers import (
 )
 
 
-class AccountQueueManager(QueueManager, AccountEventEmitter):
+class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListener):
+    _exchange_account_manager: ExchangeAccountManager
+
     _recv_account_channel: Channel
     _send_account_channel: Channel
 
@@ -50,22 +56,38 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
     _update_account_routing_key: str
     _delete_account_routing_key: str
 
+    _heartbeat_task: typing.Optional[asyncio.Task]
+
     def __init__(
             self,
             event_bus: EventBus,
+            exchange_account_manager: ExchangeAccountManager,
             recv_connection: Connection,
             send_connection: Connection,
     ):
         QueueManager.__init__(self, recv_connection, send_connection)
         AccountEventEmitter.__init__(self, event_bus)
+        AccountEventListener.__init__(self, event_bus)
+
+        self._exchange_account_manager = exchange_account_manager
 
         self._create_account_consumer_tag = str(uuid4())
         self._update_account_consumer_tag = str(uuid4())
         self._delete_account_consumer_tag = str(uuid4())
 
+        self._heartbeat_task = None
+
+    def register_listeners(self):
+        self.register_account_heartbeat_listener(self._send_heartbeat)
+
     async def start(self):
         await super(AccountQueueManager, self).start()
         await self._listen_to_create_account_queue()
+
+    async def stop(self):
+        await super(AccountQueueManager, self).stop()
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
 
     async def create_channels(self):
         self._recv_account_channel = await self.create_channel(self.recv_connection)
@@ -86,11 +108,39 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
+    async def _send_heartbeat(self, interval) -> None:
+        async def do_heartbeat():
+            if not self._exchange_account_manager.account:
+                return
+
+            response_payload: dict = {
+                "accountId": self._exchange_account_manager.account.account_id
+            }
+            expiration = datetime.datetime.now() + datetime.timedelta(seconds=20)
+
+            await self._send_bitmex_exchange.publish(
+                Message(
+                    bytes(json.dumps(response_payload), "utf-8"),
+                    delivery_mode=DeliveryMode.PERSISTENT,
+                    content_type="application/json",
+                    expiration=expiration,
+                ),
+                routing_key=BITMEX_HEARTBEAT_EVENT_KEY,
+            )
+
+        while True:
+            await asyncio.sleep(interval)
+            await do_heartbeat()
+
     async def _on_account_created(self, account_id: str) -> None:
         await self._create_account_queue.unbind(self._recv_bitmex_exchange)
         await self._create_account_queue.cancel(self._create_account_consumer_tag)
         await self._listen_to_update_account_queue(account_id)
         await self._listen_to_delete_account_queue(account_id)
+
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+        self._heartbeat_task = asyncio.create_task(self._send_heartbeat(2))
 
     async def _on_account_deleted(self) -> None:
         await self._update_account_queue.unbind(
@@ -156,7 +206,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
 
     async def on_create_account_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
-            if exchange_account_manager.account:
+            if self._exchange_account_manager.account:
                 message.reject(True)
                 return
 
@@ -166,7 +216,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
 
             try:
                 account_id = await handle_create_account_message(
-                    message, exchange_account_manager, self
+                    message, self._exchange_account_manager, self
                 )
             except InvalidApiKeysError as e:
                 account_id = e.account_id
@@ -199,7 +249,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
 
             try:
                 account_id = await handle_update_account_message(
-                    message, exchange_account_manager, self
+                    message, self._exchange_account_manager, self
                 )
             except InvalidApiKeysError as e:
                 account_id = e.account_id
@@ -232,7 +282,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter):
 
             try:
                 account_id = await handle_delete_account_message(
-                    message, exchange_account_manager, self
+                    message, self._exchange_account_manager, self
                 )
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})

@@ -32,8 +32,8 @@ SERVER_RELOAD = config("SERVER_RELOAD", cast=bool, default=False)
 
 # Production Settings
 
-HOST = config("HOST", default="localhost")
-PORT = config("PORT", cast=int, default=8080)
+HOST = config("HOST", default="127.0.0.1")
+PORT = config("PORT", cast=int, default=8081)
 
 # Redis
 REDIS_URL = config("REDIS_URL")

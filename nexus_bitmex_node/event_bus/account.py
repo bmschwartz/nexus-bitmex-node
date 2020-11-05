@@ -1,10 +1,12 @@
 import typing
 
-from . import EventListener, EventEmitter
+from nexus_bitmex_node.event_bus import EventListener, EventEmitter
 from .constants import (
     CREATE_ACCOUNT_CMD_KEY,
     UPDATE_ACCOUNT_CMD_KEY,
     DELETE_ACCOUNT_CMD_KEY,
+
+    ACCOUNT_HEARTBEAT_KEY,
 
     ACCOUNT_CREATED_EVENT_KEY,
     ACCOUNT_UPDATED_EVENT_KEY,
@@ -25,6 +27,9 @@ class AccountEventListener(EventListener):
 
     def register_delete_account_listener(self, listener: typing.Callable):
         self.register_listener(DELETE_ACCOUNT_CMD_KEY, listener)
+
+    def register_account_heartbeat_listener(self, listener: typing.Callable):
+        self.register_listener(ACCOUNT_HEARTBEAT_KEY, listener)
 
     # Result listeners
     def register_account_created_listener(self, listener: typing.Callable):
@@ -57,3 +62,6 @@ class AccountEventEmitter(EventEmitter):
 
     async def emit_account_deleted_event(self, *args, **kwargs):
         await self.emit(ACCOUNT_DELETED_EVENT_KEY, *args, **kwargs)
+
+    async def emit_account_heartbeat(self, *args, **kwargs):
+        await self.emit(ACCOUNT_HEARTBEAT_KEY, *args, **kwargs)

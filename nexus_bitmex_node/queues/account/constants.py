@@ -9,3 +9,5 @@ BITMEX_ACCOUNT_UPDATED_EVENT_KEY = "bitmex.event.account.updated"
 BITMEX_DELETE_ACCOUNT_QUEUE_PREFIX = "DeleteBitmexAccount:"
 BITMEX_DELETE_ACCOUNT_CMD_KEY_PREFIX = "bitmex.cmd.account.delete."
 BITMEX_ACCOUNT_DELETED_EVENT_KEY = "bitmex.event.account.deleted"
+
+BITMEX_HEARTBEAT_EVENT_KEY = "bitmex.event.account.heartbeat"

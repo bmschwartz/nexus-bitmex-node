@@ -1,5 +1,3 @@
-import time
-
 from glom import glom
 
 from nexus_bitmex_node.event_bus import (
@@ -10,6 +8,8 @@ from nexus_bitmex_node.event_bus import (
 
 
 class BitmexManager(ExchangeEventEmitter):
+    _symbol_data: dict
+
     def __init__(self, bus: EventBus):
         ExchangeEventEmitter.__init__(self, bus)
         self._symbol_data = {}

@@ -1,21 +1,16 @@
 import uuid
-import asyncio
 import typing
-import threading
 from datetime import datetime
 
-# import ccxt.async_support as ccxt
-import ccxtpro as ccxt
-from ccxt.base.errors import AuthenticationError as ClientAuthenticationError
+import ccxt.async_support as ccxt
 
-from nexus_bitmex_node.bitmex import bitmex_manager
-from nexus_bitmex_node.event_bus import EventBus, event_bus
+from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter
 from nexus_bitmex_node.event_bus.balance import BalanceEventEmitter
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 
 
-class ExchangeAccount(BalanceEventEmitter):
-    def __init__(self, loop, bus: EventBus, account_id: str, api_key: str, api_secret: str):
+class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
+    def __init__(self, bus: EventBus, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
         :param account_id
@@ -28,12 +23,11 @@ class ExchangeAccount(BalanceEventEmitter):
 
         if any([not api_key, not api_secret]):
             raise InvalidApiKeysError(account_id)
-        self._loop = loop
         self.account_id = account_id
         self._api_key = api_key
         self._api_secret = api_secret
         self._client: typing.Optional[ccxt.Exchange] = None
-        self._websocket_manager: typing.Optional = None
+        self._websocket_manager = None
         self._websocket_stream_ids: typing.List[uuid.UUID] = []
 
     async def start(self):
@@ -50,39 +44,39 @@ class ExchangeAccount(BalanceEventEmitter):
             self._websocket_manager = None
 
     async def _connect_client(self):
-        ccxt.bitmex({
-        })
-        self._client = ccxt.bitmex(
-            {
-                "apiKey": self._api_key,
-                "secret": self._api_secret,
-                "timeout": 30000,
-                "enableRateLimit": True,
-            }
-        )
-        try:
-            self._client.check_required_credentials()
-            balances = await self._client.fetch_balance()
-        except ClientAuthenticationError:
-            raise InvalidApiKeysError(self.account_id)
-
-        await self._store_balances(balances["info"]["balances"])
+        # self._client = ccxt.bitmex(
+        #     {
+        #         "apiKey": self._api_key,
+        #         "secret": self._api_secret,
+        #         "timeout": 30000,
+        #         "enableRateLimit": True,
+        #     }
+        # )
+        # try:
+        #     self._client.check_required_credentials()
+        #     balances = await self._client.fetch_balance()
+        # except ClientAuthenticationError:
+        #     raise InvalidApiKeysError(self.account_id)
+        #
+        # await self._store_balances(balances["info"]["balances"])
+        pass
 
     def _connect_to_socket_stream(self):
         # self._websocket_manager = BitmexWebSocketApiManager(
         #     exchange="bitmex.com", throw_exception_if_unrepairable=True
         # )
-        self._create_streams()
+        # self._create_streams()
 
-        worker_thread = threading.Thread(
-            target=asyncio.run,
-            args=(
-                bitmex_manager.handle_stream_data_from_stream_buffer(
-                    self._websocket_manager
-                ),
-            ),
-        )
-        worker_thread.start()
+        # worker_thread = threading.Thread(
+        #     target=asyncio.run,
+        #     args=(
+        #         bitmex_manager.handle_stream_data_from_stream_buffer(
+        #             self._websocket_manager
+        #         ),
+        #     ),
+        # )
+        # worker_thread.start()
+        pass
 
     def _create_streams(self):
         user_stream_id = self._websocket_manager.create_stream(
@@ -108,9 +102,8 @@ class ExchangeAccount(BalanceEventEmitter):
 
 
 class ExchangeAccountManager:
-    def __init__(self, loop, bus: EventBus):
+    def __init__(self, bus: EventBus):
         self._event_bus = bus
-        self._loop = loop
         self._last_update: datetime = datetime.now()
         self._account: typing.Optional[ExchangeAccount] = None
 
@@ -128,7 +121,7 @@ class ExchangeAccountManager:
         await self.disconnect()
 
         try:
-            self._account = ExchangeAccount(self._loop, self._event_bus, account_id, api_key, api_secret)
+            self._account = ExchangeAccount( self._event_bus, account_id, api_key, api_secret)
             await self._account.start()
         except InvalidApiKeysError as e:
             await self.disconnect()
@@ -139,5 +132,3 @@ class ExchangeAccountManager:
             await self._account.disconnect()
         self._account = None
 
-
-exchange_account_manager = ExchangeAccountManager(event_bus)

@@ -1,5 +1,5 @@
 [run]
-source = nexus_node_manager
+source = nexus_bitmex_node
 
 [report]
 exclude_lines =
