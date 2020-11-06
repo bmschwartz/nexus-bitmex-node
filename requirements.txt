@@ -1,12 +1,13 @@
 aio-pika==6.7.1
 aiodns==1.1.1
 aiohttp==3.7.2
+aioredis==1.3.1
 aiormq==3.3.1
 async-timeout==3.0.1
 attrs==20.2.0
 boltons==20.2.1
-ccxt==1.37.20
--e git+ssh://git@github.com/kroitor/ccxt.pro.git@6facee964e6868366978da28335b357d9bd2cfaf#egg=ccxtpro&subdirectory=python
+ccxt==1.37.30
+-e git+ssh://git@github.com/kroitor/ccxt.pro.git@8fd9200079877333bad074192b992349ccbc0f23#egg=ccxtpro&subdirectory=python
 certifi==2020.6.20
 cffi==1.14.3
 chardet==3.0.4
@@ -15,6 +16,7 @@ cryptography==3.2.1
 face==20.1.1
 glom==20.8.0
 h11==0.11.0
+hiredis==1.1.0
 idna==2.10
 multidict==4.7.6
 mypy==0.790
@@ -22,6 +24,7 @@ mypy-extensions==0.4.3
 pamqp==2.3.0
 pycares==3.1.1
 pycparser==2.20
+python-dateutil==2.8.1
 pytz==2020.4
 requests==2.24.0
 six==1.15.0
