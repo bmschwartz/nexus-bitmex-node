@@ -25,6 +25,9 @@ def status(request: Request) -> JSONResponse:
 
 
 async def on_start():
+    global exchange_account_manager
+    exchange_account_manager = ExchangeAccountManager(event_bus)
+
     await setup_queue_managers()
     await data_store.start(REDIS_URL)
 
@@ -50,8 +53,6 @@ async def setup_queue_managers():
 
     recv_connection: Connection = await aio_pika.connect_robust(AMQP_URL)
     send_connection: Connection = await aio_pika.connect_robust(AMQP_URL)
-
-    exchange_account_manager = ExchangeAccountManager(event_bus)
 
     account_queue_manager = AccountQueueManager(
         event_bus, exchange_account_manager, recv_connection, send_connection
