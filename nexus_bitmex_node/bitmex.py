@@ -1,5 +1,4 @@
 import ccxtpro
-from glom import glom
 
 from nexus_bitmex_node.event_bus import (
     EventBus,
@@ -19,25 +18,14 @@ class BitmexManager(BalanceEventEmitter, ExchangeEventEmitter):
 
         self._symbol_data = {}
 
-    async def start(self, client: ccxtpro.bitmex):
-        self._client = client
-
+    async def watch_streams(self, client: ccxtpro.bitmex):
         while True:
-            balances = await self._client.watch_balance()
-            trades = await self._client.watch_my_trades()
 
-            print(balances)
-            print(trades)
+            self.update_position_data(client.positions)
+            await client.sleep(2000)
 
-    def update_ticker_data(self, data: dict):
-        ticker_data_spec = {"symbol": "symbol", "price": "close_price"}
-
-        info = glom(data, ticker_data_spec)
-        self._symbol_data[info.get("symbol").lower()] = info
-
-    def get_price(self, symbol: str):
-        info = self._symbol_data.get(symbol.lower(), {})
-        return info.get("price")
+    def update_position_data(self, data: list):
+        self.emit_balances_updated_event()
 
 
 bitmex_manager = BitmexManager(event_bus)

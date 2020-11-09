@@ -15,6 +15,9 @@ BALANCES_UPDATED_EVENT_KEY = "balances_updated_event"
 # Exchange events
 TICKER_UPDATED_EVENT_KEY = "ticker_updated_event"
 
+# Position events
+POSITION_UPDATED_EVENT_KEY = "position_updated_event"
+
 # Order commands
 CREATE_ORDER_CMD_KEY = "create_order_cmd"
 UPDATE_ORDER_CMD_KEY = "update_order_cmd"
