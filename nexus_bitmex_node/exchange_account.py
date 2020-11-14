@@ -45,7 +45,7 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
             await self._client.close()
             self._client = None
 
-        # TODO: Stop websockets
+        bitmex_manager.stop_streams()
 
     async def _connect_client(self):
         self._client = ccxtpro.bitmex(
@@ -74,7 +74,7 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
 
         worker_thread = threading.Thread(
             target=asyncio.run,
-            args=(bitmex_manager.watch_streams(self._client),)
+            args=(bitmex_manager.watch_streams(self.account_id, self._client),)
         )
         worker_thread.start()
 
@@ -93,11 +93,12 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
         def transform_balance(balance):
             pass
 
-        transformed = {
-            balance["asset"]: transform_balance(balance) for balance in balances
-        }
+        print(balances)
+        # transformed = {
+        #     balance["asset"]: transform_balance(balance) for balance in balances
+        # }
         # await self.emit_balances_updated_event(self.account_id, transformed)
-        print(transformed)
+        # print(transformed)
 
 
 class ExchangeAccountManager:

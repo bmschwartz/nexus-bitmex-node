@@ -73,6 +73,7 @@ class RedisDataStore(DataStore, BalanceEventListener, ExchangeEventListener):
         for k, v in data.items():
             data[k] = json.dumps(v)
 
+        print(data)
         await self._client.hmset_dict(f"bitmex:{client_key}:balances", data)
 
     async def save_tickers(self, data: typing.Dict):
