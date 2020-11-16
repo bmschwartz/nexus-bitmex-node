@@ -28,7 +28,7 @@ class DataStore(abc.ABC, EventListener):
         ...
 
     @abc.abstractmethod
-    async def save_balances(self, client_key: str, data: typing.Dict):
+    async def save_balances(self, client_key: str, data: typing.List):
         ...
 
     @abc.abstractmethod
@@ -69,12 +69,17 @@ class RedisDataStore(DataStore, BalanceEventListener, ExchangeEventListener):
     async def save_order(self, client_key: str):
         pass
 
-    async def save_balances(self, client_key: str, data: typing.Dict):
-        for k, v in data.items():
-            data[k] = json.dumps(v)
+    async def save_balances(self, client_key: str, data: typing.List):
+        balances: typing.Dict = {}
 
-        print(data)
-        await self._client.hmset_dict(f"bitmex:{client_key}:balances", data)
+        for entry in data:
+            symbol = entry["symbol"]
+            balances[symbol] = json.dumps({
+                "currentQty": entry["currentQty"]
+            })
+
+        print(balances)
+        await self._client.hmset_dict(f"bitmex:{client_key}:balances", balances)
 
     async def save_tickers(self, data: typing.Dict):
         for k, v in data.items():

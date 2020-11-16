@@ -67,13 +67,13 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
         await super(OrderQueueManager, self).start()
         await self._listen_to_create_order_queue()
 
-    async def register_listeners(self):
-        self.register_create_order_listener()
-
     async def create_channels(self):
         self._recv_order_channel = await self.create_channel(self.recv_connection)
         self._send_order_channel = await self.create_channel(self.send_connection)
         await self._recv_order_channel.set_qos(prefetch_count=1)
+
+    def register_listeners(self):
+        pass
 
     async def declare_queues(self):
         self._create_order_queue = await self._recv_order_channel.declare_queue(
