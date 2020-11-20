@@ -13,11 +13,11 @@ async def handle_create_order_message(message: IncomingMessage, event_emitter: O
     except JSONDecodeError as err:
         raise err
 
-    api_key = data.get("apiKey")
-    api_secret = data.get("apiSecret")
     order_id = data.get("orderId")
+    side = data.get("side")
+    symbol = data.get("symbol")
 
-    await event_emitter.emit_create_order_event(order_id, api_key, api_secret)
+    await event_emitter.emit_create_order_event(order_id)
 
     return order_id
 

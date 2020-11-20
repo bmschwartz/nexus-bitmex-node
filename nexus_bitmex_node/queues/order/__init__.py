@@ -14,7 +14,7 @@ from aio_pika import (
     DeliveryMode,
 )
 
-from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener
+from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener
 from nexus_bitmex_node.exceptions import WrongOrderError
 from nexus_bitmex_node.queues.order.helpers import (
     handle_create_order_message,
@@ -24,8 +24,8 @@ from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATIO
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.order.constants import (
-    BITMEX_CREATE_ORDER_QUEUE,
-    BITMEX_CREATE_ORDER_CMD_KEY,
+    BITMEX_CREATE_ORDER_CMD_PREFIX,
+    BITMEX_CREATE_ORDER_QUEUE_PREFIX,
     BITMEX_UPDATE_ORDER_QUEUE_PREFIX,
     BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX,
     BITMEX_CANCEL_ORDER_QUEUE_PREFIX,
@@ -36,7 +36,7 @@ from nexus_bitmex_node.queues.order.constants import (
 )
 
 
-class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
+class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, AccountEventListener):
     _recv_order_channel: Channel
     _send_order_channel: Channel
 
@@ -47,6 +47,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
     _update_order_queue: Queue
     _delete_order_queue: Queue
 
+    _create_order_routing_key: str
     _update_order_routing_keys: typing.Dict[str, str]
     _delete_order_routing_keys: typing.Dict[str, str]
 
@@ -58,6 +59,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
     ):
         QueueManager.__init__(self, recv_connection, send_connection)
         OrderEventEmitter.__init__(self, event_bus)
+        AccountEventListener.__init__(self, event_bus)
 
         self._create_order_consumer_tag = str(uuid4())
         self._update_order_consumer_tag = str(uuid4())
@@ -65,7 +67,9 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def start(self):
         await super(OrderQueueManager, self).start()
-        await self._listen_to_create_order_queue()
+
+    async def declare_queues(self):
+        pass
 
     async def create_channels(self):
         self._recv_order_channel = await self.create_channel(self.recv_connection)
@@ -73,12 +77,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
         await self._recv_order_channel.set_qos(prefetch_count=1)
 
     def register_listeners(self):
-        pass
-
-    async def declare_queues(self):
-        self._create_order_queue = await self._recv_order_channel.declare_queue(
-            BITMEX_CREATE_ORDER_QUEUE, durable=True
-        )
+        self.register_account_created_listener(listener=self.listen_to_create_order_queue)
+        self.register_account_deleted_listener(listener=self.stop_listening_to_order_queues)
 
     async def declare_exchanges(self):
         self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(
@@ -91,21 +91,36 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
 
     async def _on_order_created(self, order_id: str) -> None:
         # TODO: Create queues to listen to order updates or delete message
-        pass
+        print(f"on order created {order_id}")
 
-    async def _on_order_deleted(self) -> None:
+    async def _on_order_deleted(self, order_id: str) -> None:
         # TODO: Unbind queues that listen to order updates or delete message
-        pass
+        print(f"on order created {order_id}")
 
-    async def _listen_to_create_order_queue(self):
+    async def listen_to_create_order_queue(self, account_id: str):
+        if getattr(self, "_create_order_queue", None):
+            await self._create_order_queue.delete()
+
+        self._create_order_queue = await self._recv_order_channel.declare_queue(
+            f"{BITMEX_CREATE_ORDER_QUEUE_PREFIX}{account_id}",
+            durable=True,
+            arguments={"x-expires": QUEUE_EXPIRATION_TIME},
+        )
+
+        self._create_order_routing_key = (
+            f"{BITMEX_CREATE_ORDER_CMD_PREFIX}{account_id}"
+        )
         await self._create_order_queue.bind(
-            self._recv_bitmex_exchange,
-            BITMEX_CREATE_ORDER_CMD_KEY,
+            self._send_bitmex_exchange, self._create_order_routing_key
         )
 
         await self._create_order_queue.consume(
             self.on_create_order_message, consumer_tag=self._create_order_consumer_tag
         )
+
+    async def stop_listening_to_order_queues(self):
+        await self._create_order_queue.unbind(self._recv_bitmex_exchange)
+        await self._create_order_queue.delete()
 
     async def _listen_to_update_order_queue(self, order_id: str) -> None:
         self._update_order_queue = await self._recv_order_channel.declare_queue(
@@ -147,10 +162,10 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             else:
-                await self._on_order_created(order_id)
                 response_payload.update({"success": True})
 
             if order_id:
+                await self._on_order_created(order_id)
                 response_payload.update({"orderId": order_id})
 
             response = Message(
@@ -162,6 +177,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
             )
+
             message.ack()
 
     async def on_update_order_message(self, message: IncomingMessage):
@@ -195,6 +211,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
                 routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY,
             )
 
+            message.ack()
+
     async def on_delete_order_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
             order_id = None
@@ -211,11 +229,10 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
                     {"success": False, "error": "No matching order"}
                 )
             else:
-                message.ack()
-                await self._on_order_deleted()
                 response_payload.update({"success": True})
 
             if order_id:
+                await self._on_order_deleted(order_id)
                 response_payload.update({"orderId": order_id})
 
             await self._send_bitmex_exchange.publish(
@@ -227,3 +244,5 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener):
                 ),
                 routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY,
             )
+
+            message.ack()

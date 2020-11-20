@@ -20,7 +20,7 @@ async def handle_create_account_message(message: IncomingMessage, account_manage
     account_id = data.get("accountId")
 
     await account_manager.connect(account_id, api_key, api_secret)
-    await event_emitter.emit_account_created_event()
+    await event_emitter.emit_account_created_event(account_id)
 
     return account_id
 
@@ -40,7 +40,7 @@ async def handle_update_account_message(message: IncomingMessage, account_manage
         raise WrongAccountError(account_id)
 
     await account_manager.connect(account_id, api_key, api_secret)
-    await event_emitter.emit_account_updated_event()
+    await event_emitter.emit_account_updated_event(account_id)
 
     return account_id
 
@@ -58,6 +58,6 @@ async def handle_delete_account_message(message: IncomingMessage, account_manage
         raise WrongAccountError(account_id)
 
     await account_manager.disconnect()
-    await event_emitter.emit_account_deleted_event()
+    await event_emitter.emit_account_deleted_event(account_id)
 
     return account_id

@@ -1,5 +1,5 @@
-BITMEX_CREATE_ORDER_QUEUE = "CreateBitmexOrder"
-BITMEX_CREATE_ORDER_CMD_KEY = "bitmex.cmd.order.create"
+BITMEX_CREATE_ORDER_QUEUE_PREFIX = "CreateBitmexOrder:"
+BITMEX_CREATE_ORDER_CMD_PREFIX = "bitmex.cmd.order.create."
 BITMEX_ORDER_CREATED_EVENT_KEY = "bitmex.event.order.created"
 
 BITMEX_UPDATE_ORDER_QUEUE_PREFIX = "UpdateBitmexOrder:"
