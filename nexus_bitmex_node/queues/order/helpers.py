@@ -4,7 +4,6 @@ from json import JSONDecodeError
 from aio_pika import IncomingMessage
 
 from nexus_bitmex_node.event_bus import OrderEventEmitter
-from nexus_bitmex_node.exceptions import WrongOrderError
 
 
 async def handle_create_order_message(message: IncomingMessage, event_emitter: OrderEventEmitter) -> str:

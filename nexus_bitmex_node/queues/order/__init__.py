@@ -45,11 +45,11 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
 
     _create_order_queue: Queue
     _update_order_queue: Queue
-    _delete_order_queue: Queue
+    _cancel_order_queue: Queue
 
     _create_order_routing_key: str
-    _update_order_routing_keys: typing.Dict[str, str]
-    _delete_order_routing_keys: typing.Dict[str, str]
+    _update_order_routing_key: str
+    _cancel_order_routing_key: str
 
     def __init__(
         self,
@@ -63,12 +63,13 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
 
         self._create_order_consumer_tag = str(uuid4())
         self._update_order_consumer_tag = str(uuid4())
-        self._delete_order_consumer_tag = str(uuid4())
+        self._cancel_order_consumer_tag = str(uuid4())
 
     async def start(self):
         await super(OrderQueueManager, self).start()
 
     async def declare_queues(self):
+        # Can't declare any queues on startup because we don't have a linked account
         pass
 
     async def create_channels(self):
@@ -77,7 +78,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         await self._recv_order_channel.set_qos(prefetch_count=1)
 
     def register_listeners(self):
-        self.register_account_created_listener(listener=self.listen_to_create_order_queue)
+        self.register_account_created_listener(listener=self.listen_to_order_queues)
         self.register_account_deleted_listener(listener=self.stop_listening_to_order_queues)
 
     async def declare_exchanges(self):
@@ -90,68 +91,83 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         )
 
     async def _on_order_created(self, order_id: str) -> None:
-        # TODO: Create queues to listen to order updates or delete message
-        print(f"on order created {order_id}")
+        # TODO: Do something now that an order has been created
+        pass
 
-    async def _on_order_deleted(self, order_id: str) -> None:
-        # TODO: Unbind queues that listen to order updates or delete message
-        print(f"on order created {order_id}")
+    async def _on_order_updated(self, order_id: str) -> None:
+        # TODO: Do something now that an order has been updated
+        pass
 
-    async def listen_to_create_order_queue(self, account_id: str):
+    async def _on_order_canceled(self, order_id: str) -> None:
+        # TODO: Do something now that an order has been canceled
+        pass
+
+    async def listen_to_order_queues(self, account_id: str):
+        await self.stop_listening_to_order_queues()
+        await self._declare_order_queues(account_id)
+        self._set_order_routing_keys(account_id)
+        await self._bind_order_queues()
+        await self._attach_consumers()
+
+    async def stop_listening_to_order_queues(self):
         if getattr(self, "_create_order_queue", None):
+            await self._create_order_queue.unbind(self._recv_bitmex_exchange)
             await self._create_order_queue.delete()
 
+        if getattr(self, "_update_order_queue", None):
+            await self._update_order_queue.unbind(self._recv_bitmex_exchange)
+            await self._update_order_queue.delete()
+
+        if getattr(self, "_cancel_order_queue", None):
+            await self._cancel_order_queue.unbind(self._recv_bitmex_exchange)
+            await self._cancel_order_queue.delete()
+
+    def _set_order_routing_keys(self, account_id: str):
+        self._create_order_routing_key = f"{BITMEX_CREATE_ORDER_CMD_PREFIX}{account_id}"
+        self._update_order_routing_key = f"{BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX}{account_id}"
+        self._cancel_order_routing_key = f"{BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX}{account_id}"
+
+    async def _declare_order_queues(self, account_id: str):
+        # Declare queues
         self._create_order_queue = await self._recv_order_channel.declare_queue(
             f"{BITMEX_CREATE_ORDER_QUEUE_PREFIX}{account_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-        self._create_order_routing_key = (
-            f"{BITMEX_CREATE_ORDER_CMD_PREFIX}{account_id}"
+        self._update_order_queue = await self._recv_order_channel.declare_queue(
+            f"{BITMEX_UPDATE_ORDER_QUEUE_PREFIX}{account_id}",
+            durable=True,
+            arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
+
+        self._cancel_order_queue = await self._recv_order_channel.declare_queue(
+            f"{BITMEX_CANCEL_ORDER_QUEUE_PREFIX}{account_id}",
+            durable=True,
+            arguments={"x-expires": QUEUE_EXPIRATION_TIME},
+        )
+
+    async def _bind_order_queues(self):
         await self._create_order_queue.bind(
             self._send_bitmex_exchange, self._create_order_routing_key
         )
+        await self._update_order_queue.bind(
+            self._send_bitmex_exchange, self._update_order_routing_key
+        )
+        await self._cancel_order_queue.bind(
+            self._send_bitmex_exchange, self._cancel_order_routing_key
+        )
 
+    async def _attach_consumers(self):
         await self._create_order_queue.consume(
             self.on_create_order_message, consumer_tag=self._create_order_consumer_tag
         )
-
-    async def stop_listening_to_order_queues(self):
-        await self._create_order_queue.unbind(self._recv_bitmex_exchange)
-        await self._create_order_queue.delete()
-
-    async def _listen_to_update_order_queue(self, order_id: str) -> None:
-        self._update_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BITMEX_UPDATE_ORDER_QUEUE_PREFIX}{order_id}",
-            durable=True,
-            arguments={"x-expires": QUEUE_EXPIRATION_TIME},
-        )
-
-        router_key = f"{BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX}{order_id}"
-        self._update_order_routing_keys[order_id] = router_key
-
-        await self._update_order_queue.bind(self._recv_bitmex_exchange, router_key)
         await self._update_order_queue.consume(
             self.on_update_order_message, consumer_tag=self._update_order_consumer_tag
         )
-
-    async def _listen_to_delete_order_queue(self, order_id: str) -> None:
-        self._delete_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BITMEX_CANCEL_ORDER_QUEUE_PREFIX}{order_id}",
-            durable=True,
-            arguments={"x-expires": QUEUE_EXPIRATION_TIME},
+        await self._cancel_order_queue.consume(
+            self.on_cancel_order_message, consumer_tag=self._cancel_order_consumer_tag
         )
-
-        router_key = f"{BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX}{order_id}"
-        self._delete_order_routing_keys[order_id] = router_key
-
-        await self._delete_order_queue.bind(self._send_bitmex_exchange, router_key)
-        await self._delete_order_queue.consume(
-            self.on_delete_order_message, consumer_tag=self._delete_order_consumer_tag
-        )
-
     async def on_create_order_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
             order_id = None
@@ -213,7 +229,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
 
             message.ack()
 
-    async def on_delete_order_message(self, message: IncomingMessage):
+    async def on_cancel_order_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
             order_id = None
 
@@ -232,7 +248,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
                 response_payload.update({"success": True})
 
             if order_id:
-                await self._on_order_deleted(order_id)
+                await self._on_order_canceled(order_id)
                 response_payload.update({"orderId": order_id})
 
             await self._send_bitmex_exchange.publish(
