@@ -167,6 +167,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         await self._cancel_order_queue.consume(
             self.on_cancel_order_message, consumer_tag=self._cancel_order_consumer_tag
         )
+
     async def on_create_order_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
             order_id = None

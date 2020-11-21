@@ -10,12 +10,11 @@ from ccxtpro.base import AuthenticationError as ClientAuthenticationError
 from nexus_bitmex_node import settings
 from nexus_bitmex_node.bitmex import bitmex_manager
 from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter
-from nexus_bitmex_node.event_bus.balance import BalanceEventEmitter
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.settings import ServerMode
 
 
-class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
+class ExchangeAccount(AccountEventEmitter):
     def __init__(self, bus: EventBus, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
@@ -26,7 +25,6 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
             InvalidApiKeys: Raised when either the api_key or api_secret are invalid
         """
         AccountEventEmitter.__init__(self, event_bus=bus)
-        BalanceEventEmitter.__init__(self, event_bus=bus)
 
         if any([not api_key, not api_secret]):
             raise InvalidApiKeysError(account_id)
@@ -65,7 +63,6 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
         except ClientAuthenticationError:
             print(f"invalid creds {self._api_key} {self._api_secret}")
             raise InvalidApiKeysError(self.account_id)
-        await self._store_balances(balances["info"])
 
     async def _connect_to_socket_stream(self):
         await self._client.watch_balance()
@@ -77,28 +74,6 @@ class ExchangeAccount(AccountEventEmitter, BalanceEventEmitter):
             args=(bitmex_manager.watch_streams(self.account_id, self._client),)
         )
         worker_thread.start()
-
-    # def _create_streams(self):
-    #     user_stream_id = self._websocket_manager.create_stream(
-    #         "arr", "!userData", api_key=self._api_key, api_secret=self._api_secret
-    #     )
-    #     if user_stream_id:
-    #         self._websocket_stream_ids.append(user_stream_id)
-    #
-    #     ticker_stream_id = self._websocket_manager.create_stream("arr", "!miniTicker")
-    #     if ticker_stream_id:
-    #         self._websocket_stream_ids.append(ticker_stream_id)
-
-    async def _store_balances(self, balances):
-        def transform_balance(balance):
-            pass
-
-        print(balances)
-        # transformed = {
-        #     balance["asset"]: transform_balance(balance) for balance in balances
-        # }
-        # await self.emit_balances_updated_event(self.account_id, transformed)
-        # print(transformed)
 
 
 class ExchangeAccountManager:
