@@ -177,6 +177,8 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
                 order_id = await handle_create_order_message(message, self)
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
+            except WrongOrderError:
+                response_payload.update({"success": False, "error": "Bad Order ID"})
             else:
                 response_payload.update({"success": True})
 

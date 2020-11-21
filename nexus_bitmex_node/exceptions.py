@@ -1,3 +1,6 @@
+import typing
+
+
 class InvalidApiKeysError(ValueError):
     def __init__(self, account_id: str):
         super(InvalidApiKeysError, self).__init__()
@@ -11,6 +14,6 @@ class WrongAccountError(ValueError):
 
 
 class WrongOrderError(ValueError):
-    def __init__(self, order_id: str):
+    def __init__(self, order_id: typing.Optional[str]):
         super(WrongOrderError, self).__init__()
-        self.order_id: str = order_id
+        self.order_id: typing.Optional[str] = order_id

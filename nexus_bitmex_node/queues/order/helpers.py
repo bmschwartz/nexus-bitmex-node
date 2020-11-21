@@ -3,6 +3,7 @@ from json import JSONDecodeError
 
 from aio_pika import IncomingMessage
 
+from nexus_bitmex_node.exceptions import WrongOrderError
 from nexus_bitmex_node.event_bus import OrderEventEmitter
 
 
@@ -13,10 +14,10 @@ async def handle_create_order_message(message: IncomingMessage, event_emitter: O
         raise err
 
     order_id = data.get("orderId")
-    side = data.get("side")
-    symbol = data.get("symbol")
+    if not order_id:
+        raise WrongOrderError(order_id)
 
-    await event_emitter.emit_create_order_event(order_id)
+    await event_emitter.emit_create_order_event(data)
 
     return order_id
 

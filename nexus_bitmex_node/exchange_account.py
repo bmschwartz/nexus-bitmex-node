@@ -9,12 +9,13 @@ from ccxtpro.base import AuthenticationError as ClientAuthenticationError
 
 from nexus_bitmex_node import settings
 from nexus_bitmex_node.bitmex import bitmex_manager
-from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter
+from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
+from nexus_bitmex_node.models.order import BitmexOrder, create_order
 from nexus_bitmex_node.settings import ServerMode
 
 
-class ExchangeAccount(AccountEventEmitter):
+class ExchangeAccount(AccountEventEmitter, OrderEventListener):
     def __init__(self, bus: EventBus, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
@@ -25,6 +26,7 @@ class ExchangeAccount(AccountEventEmitter):
             InvalidApiKeys: Raised when either the api_key or api_secret are invalid
         """
         AccountEventEmitter.__init__(self, event_bus=bus)
+        OrderEventListener.__init__(self, event_bus=bus)
 
         if any([not api_key, not api_secret]):
             raise InvalidApiKeysError(account_id)
@@ -44,6 +46,9 @@ class ExchangeAccount(AccountEventEmitter):
             self._client = None
 
         bitmex_manager.stop_streams()
+
+    def register_listeners(self):
+        self.register_create_order_listener(self._on_create_order)
 
     async def _connect_client(self):
         self._client = ccxtpro.bitmex(
@@ -74,6 +79,10 @@ class ExchangeAccount(AccountEventEmitter):
             args=(bitmex_manager.watch_streams(self.account_id, self._client),)
         )
         worker_thread.start()
+
+    async def _on_create_order(self, order_data: dict):
+        order: BitmexOrder = create_order(order_data)
+        print(order)
 
 
 class ExchangeAccountManager:
