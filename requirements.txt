@@ -6,8 +6,7 @@ aiormq==3.3.1
 async-timeout==3.0.1
 attrs==20.2.0
 boltons==20.2.1
-ccxt==1.37.30
--e git+ssh://git@github.com/kroitor/ccxt.pro.git@8fd9200079877333bad074192b992349ccbc0f23#egg=ccxtpro&subdirectory=python
+-e git+ssh://git@github.com/TradeNexus/ccxt.pro.git@master#egg=ccxtpro&subdirectory=python
 certifi==2020.6.20
 cffi==1.14.3
 chardet==3.0.4
