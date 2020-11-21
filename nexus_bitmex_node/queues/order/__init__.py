@@ -1,5 +1,4 @@
 import json
-import typing
 from json import JSONDecodeError
 from uuid import uuid4
 
