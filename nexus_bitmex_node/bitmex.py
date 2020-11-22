@@ -29,7 +29,7 @@ class BitmexManager(BalanceEventEmitter, ExchangeEventEmitter):
         self._watching_streams = True
 
         while self._watching_streams:
-            await self.update_position_data(client.positions)
+            await self.update_position_data((client.positions.values()))
             await client.sleep(2000)
 
     async def update_position_data(self, data: list):
