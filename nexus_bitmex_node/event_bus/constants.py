@@ -9,14 +9,14 @@ ACCOUNT_CREATED_EVENT_KEY = "account_created_event"
 ACCOUNT_UPDATED_EVENT_KEY = "account_updated_event"
 ACCOUNT_DELETED_EVENT_KEY = "account_deleted_event"
 
-# Balance events
-BALANCES_UPDATED_EVENT_KEY = "balances_updated_event"
+# Margin events
+MARGINS_UPDATED_EVENT_KEY = "margins_updated_event"
 
 # Exchange events
 TICKER_UPDATED_EVENT_KEY = "ticker_updated_event"
 
 # Position events
-POSITION_UPDATED_EVENT_KEY = "position_updated_event"
+POSITIONS_UPDATED_EVENT_KEY = "positions_updated_event"
 
 # Order commands
 CREATE_ORDER_CMD_KEY = "create_order_cmd"
