@@ -36,12 +36,12 @@ HOST = config("HOST", default="127.0.0.1")
 PORT = config("PORT", cast=int, default=8081)
 
 # Redis
-REDIS_URL = config("REDIS_URL")
+REDIS_URL = config("REDIS_URL", default="redis://localhost")
 
 # RabbitMQ
-AMQP_URL = config("AMQP_URL")
+AMQP_URL = config("AMQP_URL", default="amqp://guest:guest@localhost:5672/")
 
-BITMEX_EXCHANGE = config("BITMEX_EXCHANGE")
+BITMEX_EXCHANGE = config("BITMEX_EXCHANGE", default="bitmex")
 
 # Logging Configuration
 

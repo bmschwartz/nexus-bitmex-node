@@ -14,6 +14,7 @@ class OrderType(enum.Enum):
     LIMIT = "LIMIT"
     MARKET = "MARKET"
 
+
 ORDER_SPEC = {
     "id": ("orderId", str),
     "symbol": "symbol",
