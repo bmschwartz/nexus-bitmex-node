@@ -18,6 +18,9 @@ TICKER_UPDATED_EVENT_KEY = "ticker_updated_event"
 # Position events
 POSITIONS_UPDATED_EVENT_KEY = "positions_updated_event"
 
+# My Trades events
+MY_TRADES_UPDATED_EVENT_KEY = "my_trades_updated_event"
+
 # Order commands
 CREATE_ORDER_CMD_KEY = "create_order_cmd"
 UPDATE_ORDER_CMD_KEY = "update_order_cmd"

@@ -1,4 +1,5 @@
 import typing
+import asyncio
 
 import ccxtpro
 
@@ -30,8 +31,9 @@ class BitmexManager(ExchangeEventEmitter):
 
         while self._watching_streams:
             await self.update_margin_data(client.balance)
+            await self.update_my_trades_data(client.myTrades)
             await self.update_positions_data(client.positions)
-            await client.sleep(2000)
+            await asyncio.sleep(2)
 
     async def update_margin_data(self, data: typing.Dict):
         margins = data.get("info", [])
@@ -39,6 +41,13 @@ class BitmexManager(ExchangeEventEmitter):
 
     async def update_positions_data(self, data: typing.Dict):
         await self.emit_positions_updated_event(self._client_id, list(data.values()))
+
+    async def update_my_trades_data(self, data: typing.Dict):
+        if not data:
+            return
+
+        trades = [trade.get("info") for trade in data]
+        await self.emit_my_trades_updated_event(self._client_id, trades)
 
 
 bitmex_manager = BitmexManager(event_bus)

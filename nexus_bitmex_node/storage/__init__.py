@@ -33,6 +33,7 @@ class RedisDataStore(DataStore, ExchangeEventListener):
     def register_listeners(self):
         self.register_margins_updated_listener(self.save_margins)
         self.register_ticker_updated_listener(self.save_tickers)
+        self.register_my_trades_updated_listener(self.save_my_trades)
         self.register_positions_updated_listener(self.save_positions)
 
     async def start(self, url: str):
@@ -47,22 +48,27 @@ class RedisDataStore(DataStore, ExchangeEventListener):
 
     async def save_margins(self, client_key: str, data: typing.List):
         margins: typing.Dict = {}
-
         for entry in data:
             symbol = entry["currency"]
             margins[symbol] = json.dumps(entry)
-
-        print(margins)
-        await self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
+        self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
 
     async def save_tickers(self, data: typing.Dict):
         for k, v in data.items():
             data[k] = json.dumps(v)
 
-        await self._client.hmset_dict(f"bitmex:tickers", data)
+        self._client.hmset_dict(f"bitmex:tickers", data)
+
+    async def save_my_trades(self, client_key: str, data: typing.List):
+        trades: typing.Dict = {}
+        for entry in data:
+            trade_id = entry["orderID"]
+            trades[trade_id] = json.dumps(entry)
+        print("saving trades")
+        self._client.hmset_dict(f"bitmex:{client_key}:trades", trades)
 
     async def save_positions(self, client_key: str, data: typing.List):
-        print(data)
+        print(f"positions {data}")
 
     async def get_order(self, client_key: str, order_id: str):
         pass
