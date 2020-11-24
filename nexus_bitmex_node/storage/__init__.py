@@ -124,21 +124,24 @@ class RedisDataStore(DataStore):
         pass
 
     async def get_balances(self, client_key: str):
-        return self._client.get(f"bitmex:{client_key}:balances", encoding="utf-8")
+        return self._client.hmget(f"bitmex:{client_key}:balances", encoding="utf-8")
 
     async def get_balance(self, client_key: str, symbol: str):
         pass
 
     async def get_positions(self, client_key: str):
-        return self._client.get(f"bitmex:{client_key}:positions", encoding="utf-8")
+        stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:positions", encoding="utf-8")
+        positions: typing.Dict = {}
+        for symbol, data in stored.items():
+            positions[symbol] = json.loads(data)
+        return positions
 
     async def get_position(self, client_key: str, symbol: str):
         positions = await self.get_positions(client_key)
-        for position in positions:
-            print(position, "\n")
+        return positions[symbol]
 
     def get_tickers(self):
-        return self._client.get("balance:tickers", encoding="utf-8")
+        return self._client.hmget("balance:tickers", encoding="utf-8")
 
     def get_ticker(self, symbol: str):
         return self._client.hmget("balance.tickers", symbol.lower(), encoding="utf-8")
