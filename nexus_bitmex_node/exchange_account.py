@@ -9,7 +9,7 @@ from ccxtpro.base import AuthenticationError as ClientAuthenticationError
 
 from nexus_bitmex_node import settings
 from nexus_bitmex_node.bitmex import bitmex_manager
-from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener
+from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener, ExchangeEventEmitter
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
 from nexus_bitmex_node.models.position import create_position
@@ -17,7 +17,7 @@ from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
 
-class ExchangeAccount(AccountEventEmitter, OrderEventListener):
+class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListener):
     def __init__(self, bus: EventBus, data_store: DataStore, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
@@ -41,6 +41,7 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
 
     async def start(self):
         await self._connect_client()
+        await self._init_tickers()
         await self._connect_to_socket_stream()
 
     async def disconnect(self):
@@ -83,6 +84,17 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
             args=(bitmex_manager.watch_streams(self.account_id, self._client),)
         )
         worker_thread.start()
+
+    async def _init_tickers(self):
+        data = await self._client.fetch_tickers()
+        tickers: typing.Dict = {}
+        for ticker in data.values():
+            info = ticker.get("info")
+            if not info.get("state") in ("Open",):
+                continue
+            symbol = info.get("symbol")
+            tickers[symbol] = info
+        await self.emit_ticker_updated_event(self.account_id, tickers)
 
     async def _on_create_order(self, order_data: dict):
         order: BitmexOrder = create_order(order_data)
