@@ -13,10 +13,11 @@ from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEven
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
 from nexus_bitmex_node.settings import ServerMode
+from nexus_bitmex_node.storage import DataStore
 
 
 class ExchangeAccount(AccountEventEmitter, OrderEventListener):
-    def __init__(self, bus: EventBus, account_id: str, api_key: str, api_secret: str):
+    def __init__(self, bus: EventBus, data_store: DataStore, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
         :param account_id
@@ -31,6 +32,7 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
         if any([not api_key, not api_secret]):
             raise InvalidApiKeysError(account_id)
         self.account_id = account_id
+        self._data_store = data_store
         self._api_key = api_key
         self._api_secret = api_secret
         self._client: typing.Optional[ccxtpro.bitmex] = None
@@ -86,8 +88,9 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
 
 
 class ExchangeAccountManager:
-    def __init__(self, bus: EventBus):
+    def __init__(self, bus: EventBus, data_store: DataStore):
         self._event_bus = bus
+        self._data_store = data_store
         self._last_update: datetime = datetime.now()
         self._account: typing.Optional[ExchangeAccount] = None
 
@@ -105,7 +108,7 @@ class ExchangeAccountManager:
         await self.disconnect()
 
         try:
-            self._account = ExchangeAccount( self._event_bus, account_id, api_key, api_secret)
+            self._account = ExchangeAccount(self._event_bus, self._data_store, account_id, api_key, api_secret)
             await self._account.start()
         except InvalidApiKeysError as e:
             await self.disconnect()

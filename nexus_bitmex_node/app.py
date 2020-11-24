@@ -26,10 +26,11 @@ def status(request: Request) -> JSONResponse:
 
 async def on_start():
     global exchange_account_manager
-    exchange_account_manager = ExchangeAccountManager(event_bus)
+
+    await data_store.start(REDIS_URL)
+    exchange_account_manager = ExchangeAccountManager(event_bus, data_store)
 
     await setup_queue_managers()
-    await data_store.start(REDIS_URL)
 
 
 async def on_shutdown():
