@@ -12,6 +12,7 @@ from nexus_bitmex_node.bitmex import bitmex_manager
 from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
+from nexus_bitmex_node.models.position import BitmexPosition, create_position
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
@@ -84,7 +85,18 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
 
     async def _on_create_order(self, order_data: dict):
         order: BitmexOrder = create_order(order_data)
-        print(order)
+        positions = await self._data_store.get_positions(self.account_id)
+        symbol_data = await self._data_store.get_ticker(order.symbol)
+
+        price = order.price or symbol_data
+        position_data = positions.get(order.symbol)
+        if not position_data:
+            # TODO: Fetch position
+            position_data = {}
+        else:
+            position = create_position(position_data)
+
+        # quantity = calculate_order_quantity(position.margin, order.percent, order.price)
 
 
 class ExchangeAccountManager:
