@@ -40,3 +40,8 @@ class BitmexOrder:
 def create_order(order_data: dict) -> BitmexOrder:
     glommed = glom.glom(order_data, ORDER_SPEC)
     return BitmexOrder(**glommed)
+
+
+def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float) -> float:
+    # TODO: Implement this
+    return 0.0
