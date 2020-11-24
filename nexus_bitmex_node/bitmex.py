@@ -33,7 +33,18 @@ class BitmexManager(ExchangeEventEmitter):
             await self.update_margin_data(client.balance)
             await self.update_my_trades_data(client.myTrades)
             await self.update_positions_data(client.positions)
+            await self.update_ticker_data(client.tickers)
             await asyncio.sleep(2)
+
+    async def update_ticker_data(self, data: typing.Dict):
+        tickers: typing.Dict = {}
+        for ticker in data.values():
+            info = ticker.get("info")
+            if not info.get("state") in ("Open",):
+                continue
+            symbol = info.get("symbol")
+            tickers[symbol] = info
+        await self.emit_ticker_updated_event(self._client_id, tickers)
 
     async def update_margin_data(self, data: typing.Dict):
         margins = data.get("info", [])

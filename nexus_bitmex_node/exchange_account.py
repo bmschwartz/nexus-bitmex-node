@@ -12,7 +12,7 @@ from nexus_bitmex_node.bitmex import bitmex_manager
 from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
-from nexus_bitmex_node.models.position import BitmexPosition, create_position
+from nexus_bitmex_node.models.position import create_position
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
@@ -76,6 +76,7 @@ class ExchangeAccount(AccountEventEmitter, OrderEventListener):
         await self._client.watch_balance()
         await self._client.watch_my_trades()
         await self._client.watch_positions()
+        await self._client.watch_instruments()
 
         worker_thread = threading.Thread(
             target=asyncio.run,
