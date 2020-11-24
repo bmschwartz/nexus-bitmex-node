@@ -6,14 +6,13 @@ import typing
 from aioredis import Redis
 
 from nexus_bitmex_node.event_bus import (
-    EventListener,
     event_bus,
     EventBus,
     ExchangeEventListener,
 )
 
 
-class DataStore(abc.ABC, EventListener):
+class DataStore(abc.ABC, ExchangeEventListener):
     @abc.abstractmethod
     async def start(self, *args, **kwargs):
         ...
@@ -26,8 +25,56 @@ class DataStore(abc.ABC, EventListener):
     def register_listeners(self):
         ...
 
+    @abc.abstractmethod
+    async def save_order(self, client_key: str):
+        ...
 
-class RedisDataStore(DataStore, ExchangeEventListener):
+    @abc.abstractmethod
+    async def save_margins(self, client_key: str, data: typing.List):
+        ...
+
+    @abc.abstractmethod
+    async def save_tickers(self, data: typing.Dict):
+        ...
+
+    @abc.abstractmethod
+    async def save_my_trades(self, client_key: str, data: typing.List):
+        ...
+
+    @abc.abstractmethod
+    async def save_positions(self, client_key: str, data: typing.List):
+        ...
+
+    @abc.abstractmethod
+    async def get_order(self, client_key: str, order_id: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_balances(self, client_key: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_balance(self, client_key: str, symbol: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_positions(self, client_key: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_position(self, client_key: str, symbol: str):
+        ...
+
+    @abc.abstractmethod
+    def get_tickers(self):
+        ...
+
+    @abc.abstractmethod
+    def get_ticker(self, symbol: str):
+        ...
+
+
+class RedisDataStore(DataStore):
     _client: Redis
 
     def register_listeners(self):
@@ -64,11 +111,14 @@ class RedisDataStore(DataStore, ExchangeEventListener):
         for entry in data:
             trade_id = entry["orderID"]
             trades[trade_id] = json.dumps(entry)
-        print("saving trades")
         self._client.hmset_dict(f"bitmex:{client_key}:trades", trades)
 
     async def save_positions(self, client_key: str, data: typing.List):
-        print(f"positions {data}")
+        positions: typing.Dict = {}
+        for entry in data:
+            symbol = entry["symbol"]
+            positions[symbol] = json.dumps(entry)
+        self._client.hmset_dict(f"bitmex:{client_key}:positions", positions)
 
     async def get_order(self, client_key: str, order_id: str):
         pass
@@ -79,8 +129,13 @@ class RedisDataStore(DataStore, ExchangeEventListener):
     async def get_balance(self, client_key: str, symbol: str):
         pass
 
-    async def get_position(self, client_key: str):
-        pass
+    async def get_positions(self, client_key: str):
+        return self._client.get(f"bitmex:{client_key}:positions", encoding="utf-8")
+
+    async def get_position(self, client_key: str, symbol: str):
+        positions = await self.get_positions(client_key)
+        for position in positions:
+            print(position, "\n")
 
     def get_tickers(self):
         return self._client.get("balance:tickers", encoding="utf-8")
