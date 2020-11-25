@@ -37,19 +37,21 @@ class RedisDataStore(DataStore):
             used = entry["maintMargin"]
             available = balance - used
 
+            balance, used, available = (round(val * XBt_TO_XBT_FACTOR, 8) for val in (balance, used, available,))
+
             margins[currency] = json.dumps({
-                "balance": balance * XBt_TO_XBT_FACTOR,
-                "used": used * XBt_TO_XBT_FACTOR,
-                "available": avai
+                "balance": balance,
+                "used": used,
+                "available": available,
             })
 
-        self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
+        await self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
 
     async def save_tickers(self, client_key: str, data: typing.Dict):
         tickers: typing.Dict = {}
         for symbol, val in data.items():
             tickers[symbol] = json.dumps(val)
-        self._client.hmset_dict(f"bitmex:{client_key}:tickers", tickers)
+        await self._client.hmset_dict(f"bitmex:{client_key}:tickers", tickers)
 
     async def save_my_trades(self, client_key: str, data: typing.List):
         trades: typing.Dict = {}
@@ -63,7 +65,7 @@ class RedisDataStore(DataStore):
         for entry in data:
             symbol = entry["symbol"]
             positions[symbol] = json.dumps(entry)
-        self._client.hmset_dict(f"bitmex:{client_key}:positions", positions)
+        await self._client.hmset_dict(f"bitmex:{client_key}:positions", positions)
 
     async def get_order(self, client_key: str, order_id: str):
         pass

@@ -22,7 +22,7 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def save_margins(self, client_key: str, data: typing.List):
+    async def save_margins(self, client_key: str, data: typing.Dict):
         ...
 
     @abc.abstractmethod

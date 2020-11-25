@@ -107,8 +107,8 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
         # safe = self._client.safe_currency(currency)
         currency = "BTC"
 
-        margin = await self._data_store.get_margin(self.account_id, currency)
-        margin_balance = margin.get("free", 0) if margin else 0
+        margin = await self._data_store.get_margin(self.account_id, "XBt")
+        margin_balance = margin.get("available", 0)
 
         try:
             order_data = await BitmexManager.place_order(self._client, order, ticker, margin_balance)
