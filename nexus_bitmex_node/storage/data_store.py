@@ -42,11 +42,11 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def get_balances(self, client_key: str):
+    async def get_margins(self, client_key: str):
         ...
 
     @abc.abstractmethod
-    async def get_balance(self, client_key: str, symbol: str):
+    async def get_margin(self, client_key: str, symbol: str):
         ...
 
     @abc.abstractmethod
@@ -58,10 +58,10 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    def get_tickers(self):
+    async def get_tickers(self, client_key: str):
         ...
 
     @abc.abstractmethod
-    def get_ticker(self, symbol: str):
+    async def get_ticker(self, client_key: str, symbol: str):
         ...
 

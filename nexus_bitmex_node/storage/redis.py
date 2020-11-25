@@ -1,5 +1,6 @@
 import json
 import typing
+from collections import defaultdict
 
 import aioredis
 from aioredis import Redis
@@ -26,11 +27,22 @@ class RedisDataStore(DataStore):
     async def save_order(self, client_key: str):
         pass
 
-    async def save_margins(self, client_key: str, data: typing.List):
-        margins: typing.Dict = {}
-        for entry in data:
-            symbol = entry["currency"]
-            margins[symbol] = json.dumps(entry)
+    async def save_margins(self, client_key: str, data: typing.Dict):
+        total: typing.Dict = data["total"]
+        free: typing.Dict = data["free"]
+        used: typing.Dict = data["used"]
+        margins: typing.Dict = defaultdict(dict)
+
+        for symbol, margin in total.items():
+            margins[symbol].update({"total": margin})
+        for symbol, margin in free.items():
+            margins[symbol].update({"free": margin})
+        for symbol, margin in used.items():
+            margins[symbol].update({"used": margin})
+
+        for symbol, margin_data in margins.items():
+            margins[symbol] = json.dumps(margin_data)
+
         self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
 
     async def save_tickers(self, client_key: str, data: typing.Dict):
@@ -56,11 +68,16 @@ class RedisDataStore(DataStore):
     async def get_order(self, client_key: str, order_id: str):
         pass
 
-    async def get_balances(self, client_key: str):
-        return self._client.hmget(f"bitmex:{client_key}:balances", encoding="utf-8")
+    async def get_margins(self, client_key: str):
+        stored = typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:margins", encoding="utf-8")
+        margins: typing.Dict = {}
+        for symbol, data in stored.items():
+            margins[symbol] = json.loads(data)
+        return margins
 
-    async def get_balance(self, client_key: str, symbol: str):
-        pass
+    async def get_margin(self, client_key: str, symbol: str):
+        margins = await self.get_margins(client_key)
+        return margins.get(symbol, {})
 
     async def get_positions(self, client_key: str):
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:positions", encoding="utf-8")
@@ -71,10 +88,21 @@ class RedisDataStore(DataStore):
 
     async def get_position(self, client_key: str, symbol: str):
         positions = await self.get_positions(client_key)
-        return positions[symbol]
+        return positions.get(symbol, None)
 
-    def get_tickers(self):
-        return self._client.hmget("balance:tickers", encoding="utf-8")
+    async def get_tickers(self, client_key: str):
+        stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:tickers", encoding="utf-8")
+        tickers: typing.Dict = {}
+        for symbol, data in stored.items():
+            tickers[symbol] = json.loads(data)
+        return tickers
 
-    def get_ticker(self, symbol: str):
-        return self._client.hmget("balance.tickers", symbol.lower(), encoding="utf-8")
+    async def get_ticker(self, client_key: str, symbol: str):
+        stored: typing.List = await self._client.hmget(f"bitmex:{client_key}:tickers", symbol, encoding="utf-8")
+        ticker: typing.Dict = {}
+        for entry in stored:
+            data = json.loads(entry)
+            if data["symbol"] == symbol:
+                ticker = data
+                break
+        return ticker

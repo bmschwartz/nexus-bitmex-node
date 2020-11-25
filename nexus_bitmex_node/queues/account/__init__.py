@@ -40,6 +40,9 @@ from .helpers import (
 )
 
 
+_HEARTBEAT_INTERVAL = 5
+
+
 class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListener):
     _exchange_account_manager: ExchangeAccountManager
 
@@ -140,7 +143,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
 
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
-        self._heartbeat_task = asyncio.create_task(self._send_heartbeat(2))
+        self._heartbeat_task = asyncio.create_task(self._send_heartbeat(_HEARTBEAT_INTERVAL))
 
     async def _on_account_deleted(self) -> None:
         await self._update_account_queue.unbind(

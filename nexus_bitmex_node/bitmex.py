@@ -47,8 +47,7 @@ class BitmexManager(ExchangeEventEmitter):
         await self.emit_ticker_updated_event(self._client_id, tickers)
 
     async def update_margin_data(self, data: typing.Dict):
-        margins = data.get("info", [])
-        await self.emit_margins_updated_event(self._client_id, margins)
+        await self.emit_margins_updated_event(self._client_id, data)
 
     async def update_positions_data(self, data: typing.Dict):
         await self.emit_positions_updated_event(self._client_id, list(data.values()))

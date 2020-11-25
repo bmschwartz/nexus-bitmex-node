@@ -11,8 +11,7 @@ from nexus_bitmex_node import settings
 from nexus_bitmex_node.bitmex import bitmex_manager
 from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener, ExchangeEventEmitter
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
-from nexus_bitmex_node.models.order import BitmexOrder, create_order
-from nexus_bitmex_node.models.position import create_position
+from nexus_bitmex_node.models.order import BitmexOrder, create_order, OrderSide
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
@@ -98,18 +97,19 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
 
     async def _on_create_order(self, order_data: dict):
         order: BitmexOrder = create_order(order_data)
-        positions = await self._data_store.get_positions(self.account_id)
-        symbol_data = await self._data_store.get_ticker(order.symbol)
+        ticker = await self._data_store.get_ticker(self.account_id, order.symbol)
+        position = await self._data_store.get_position(self.account_id, order.symbol)
+        if not position:
+            # todo: fetch position
+            return
 
-        price = order.price or symbol_data
-        position_data = positions.get(order.symbol)
-        if not position_data:
-            # TODO: Fetch position
-            position_data = {}
-        else:
-            position = create_position(position_data)
+        currency = position.get("underlying")
+        currency = "BTC" if currency == "XBT" else currency
 
-        # quantity = calculate_order_quantity(position.margin, order.percent, order.price)
+        margin = await self._data_store.get_margin(self.account_id, currency)
+        margin_balance = margin.get("free", 0) if margin else 0
+
+        await order.place_order(self._client, ticker, margin_balance, position)
 
 
 class ExchangeAccountManager:
