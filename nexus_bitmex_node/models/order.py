@@ -64,8 +64,8 @@ class BitmexOrder:
         quantity = await calculate_order_quantity(margin, self.percent, price, self.leverage, ticker)
 
         symbol = client.safe_symbol(self.symbol)
-        order = await client.create_order(symbol, order_type, side, quantity, price)
-        print(order)
+
+        return await client.create_limit_order(symbol, side, quantity, price)
 
     @staticmethod
     def convert_order_type(order_type: OrderType) -> str:
