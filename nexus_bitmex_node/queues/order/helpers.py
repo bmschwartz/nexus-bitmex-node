@@ -7,7 +7,7 @@ from nexus_bitmex_node.exceptions import WrongOrderError
 from nexus_bitmex_node.event_bus import OrderEventEmitter
 
 
-async def handle_create_order_message(message: IncomingMessage, event_emitter: OrderEventEmitter) -> str:
+async def handle_create_order_message(message: IncomingMessage, event_emitter: OrderEventEmitter) -> bool:
     try:
         data = json.loads(message.body.decode("utf-8"))
     except JSONDecodeError as err:
@@ -17,9 +17,8 @@ async def handle_create_order_message(message: IncomingMessage, event_emitter: O
     if not order_id:
         raise WrongOrderError(order_id)
 
-    await event_emitter.emit_create_order_event(data)
-
-    return order_id
+    await event_emitter.emit_create_order_event(message.correlation_id, data)
+    return True
 
 
 async def handle_update_order_message(message: IncomingMessage,

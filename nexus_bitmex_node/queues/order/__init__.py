@@ -1,4 +1,5 @@
 import json
+import typing
 from json import JSONDecodeError
 from uuid import uuid4
 
@@ -15,6 +16,7 @@ from aio_pika import (
 
 from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener
 from nexus_bitmex_node.exceptions import WrongOrderError
+from nexus_bitmex_node.models.order import BitmexOrder
 from nexus_bitmex_node.queues.order.helpers import (
     handle_create_order_message,
     handle_update_order_message,
@@ -79,6 +81,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
     def register_listeners(self):
         self.register_account_created_listener(listener=self.listen_to_order_queues)
         self.register_account_deleted_listener(listener=self.stop_listening_to_order_queues)
+        self.register_order_created_listener(self._on_order_created)
 
     async def declare_exchanges(self):
         self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(
@@ -89,9 +92,24 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-    async def _on_order_created(self, order_id: str) -> None:
-        # TODO: Do something now that an order has been created
-        pass
+    async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
+        response_payload: dict = {
+            "success": error is None,
+            "order": order,
+        }
+
+        if error:
+            response_payload.update({"error": error})
+
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            correlation_id=message_id,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
+        )
 
     async def _on_order_updated(self, order_id: str) -> None:
         # TODO: Do something now that an order has been updated
@@ -174,17 +192,15 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             response_payload: dict = {}
 
             try:
-                order_id = await handle_create_order_message(message, self)
+                if await handle_create_order_message(message, self):
+                    message.ack()
+                    return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             except WrongOrderError:
                 response_payload.update({"success": False, "error": "Bad Order ID"})
             else:
-                response_payload.update({"success": True})
-
-            if order_id:
-                await self._on_order_created(order_id)
-                response_payload.update({"orderId": order_id})
+                response_payload.update({"success": False, "error": "Unknown Error"})
 
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),
