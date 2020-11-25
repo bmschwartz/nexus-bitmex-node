@@ -8,15 +8,18 @@ import ccxtpro
 from ccxtpro.base import AuthenticationError as ClientAuthenticationError
 
 from nexus_bitmex_node import settings
-from nexus_bitmex_node.bitmex import bitmex_manager
-from nexus_bitmex_node.event_bus import EventBus, AccountEventEmitter, OrderEventListener, ExchangeEventEmitter
+from nexus_bitmex_node.bitmex import bitmex_manager, BitmexManager
+from nexus_bitmex_node.event_bus import (
+    OrderEventListener, OrderEventEmitter,
+    EventBus, AccountEventEmitter, ExchangeEventEmitter,
+)
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
-from nexus_bitmex_node.models.order import BitmexOrder, create_order, OrderSide
+from nexus_bitmex_node.models.order import BitmexOrder, create_order
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
 
-class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListener):
+class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListener, OrderEventEmitter):
     def __init__(self, bus: EventBus, data_store: DataStore, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
@@ -95,21 +98,22 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
             tickers[symbol] = info
         await self.emit_ticker_updated_event(self.account_id, tickers)
 
-    async def _on_create_order(self, order_data: dict):
+    async def _on_create_order(self, message_id: str, order_data: dict):
         order: BitmexOrder = create_order(order_data)
         ticker = await self._data_store.get_ticker(self.account_id, order.symbol)
-        position = await self._data_store.get_position(self.account_id, order.symbol)
-        if not position:
-            # todo: fetch position
-            return
 
-        currency = position.get("underlying")
+        currency = ticker.get("underlying")
+        safe = self._client.safe_currency(currency)
         currency = "BTC" if currency == "XBT" else currency
 
         margin = await self._data_store.get_margin(self.account_id, currency)
         margin_balance = margin.get("free", 0) if margin else 0
 
-        await order.place_order(self._client, ticker, margin_balance, position)
+        try:
+            order_data = await BitmexManager.place_order(self._client, order, ticker, margin_balance)
+            await self.emit_order_created_event(message_id, order=order_data)
+        except Exception as e:
+            await self.emit_order_created_event(message_id, order=None, error=e)
 
 
 class ExchangeAccountManager:

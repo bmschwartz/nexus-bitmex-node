@@ -8,6 +8,7 @@ from nexus_bitmex_node.event_bus import (
     event_bus,
     ExchangeEventEmitter,
 )
+from nexus_bitmex_node.models.order import BitmexOrder
 
 
 class BitmexManager(ExchangeEventEmitter):
@@ -24,6 +25,16 @@ class BitmexManager(ExchangeEventEmitter):
 
     def stop_streams(self):
         self._watching_streams = False
+
+    @staticmethod
+    async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
+        price = order.price or ticker.get("lastPrice")
+        side = BitmexOrder.convert_order_side(order.side)
+        order_type = BitmexOrder.convert_order_type(order.order_type)
+        quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
+        symbol = client.safe_symbol(order.symbol)
+
+        return await client.create_limit_order(symbol, side, quantity, price)
 
     async def watch_streams(self, client_id: str, client: ccxtpro.bitmex):
         self._client_id = client_id

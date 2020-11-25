@@ -57,16 +57,6 @@ class BitmexOrder:
     stop_trigger_type: typing.Optional[StopTriggerType]
     trailing_stop_percent: typing.Optional[float]
 
-    async def place_order(self, client: ccxtpro.bitmex, ticker, margin, position):
-        price = self.price or ticker.get("lastPrice")
-        side = BitmexOrder.convert_order_side(self.side)
-        order_type = BitmexOrder.convert_order_type(self.order_type)
-        quantity = await calculate_order_quantity(margin, self.percent, price, self.leverage, ticker)
-
-        symbol = client.safe_symbol(self.symbol)
-
-        return await client.create_limit_order(symbol, side, quantity, price)
-
     @staticmethod
     def convert_order_type(order_type: OrderType) -> str:
         if order_type == OrderType.LIMIT:
@@ -85,26 +75,26 @@ class BitmexOrder:
             return "Sell"
         return ""
 
+    @staticmethod
+    async def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float, ticker: typing.Dict):
+        if percent > 0:
+            percent /= 100.0
+        else:
+            return 0
+
+        margin_to_spend = round(percent * margin, 8)
+        symbol_value = BitmexOrder.get_symbol_value_in_xbt(ticker, price)
+        return round(margin_to_spend * leverage / symbol_value)
+
+    @staticmethod
+    def get_symbol_value_in_xbt(ticker, price: float) -> float:
+        if ticker.get("underlying") == "XBT":
+            return 1 / price
+
+        multiplier = CONTRACT_VALUE_MULTIPLIERS.get(ticker["symbol"], 1)
+        return price * multiplier
+
 
 def create_order(order_data: dict) -> BitmexOrder:
     glommed = glom.glom(order_data, ORDER_SPEC)
     return BitmexOrder(**glommed)
-
-
-async def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float, ticker: typing.Dict):
-    if percent > 0:
-        percent /= 100.0
-    else:
-        return 0
-
-    margin_to_spend = round(percent * margin, 8)
-    symbol_value = get_symbol_value_in_xbt(ticker, price)
-    return round(margin_to_spend * leverage / symbol_value)
-
-
-def get_symbol_value_in_xbt(ticker, price: float) -> float:
-    if ticker.get("underlying") == "XBT":
-        return 1 / price
-
-    multiplier = CONTRACT_VALUE_MULTIPLIERS.get(ticker["symbol"], 1)
-    return price * multiplier
