@@ -5,6 +5,7 @@ from collections import defaultdict
 import aioredis
 from aioredis import Redis
 
+from nexus_bitmex_node.models.order import XBt_TO_XBT_FACTOR
 from nexus_bitmex_node.storage.data_store import DataStore
 
 
@@ -28,20 +29,19 @@ class RedisDataStore(DataStore):
         pass
 
     async def save_margins(self, client_key: str, data: typing.Dict):
-        total: typing.Dict = data["total"]
-        free: typing.Dict = data["free"]
-        used: typing.Dict = data["used"]
         margins: typing.Dict = defaultdict(dict)
 
-        for symbol, margin in total.items():
-            margins[symbol].update({"total": margin})
-        for symbol, margin in free.items():
-            margins[symbol].update({"free": margin})
-        for symbol, margin in used.items():
-            margins[symbol].update({"used": margin})
+        for entry in data.get("info", []):
+            currency = entry["currency"]
+            balance = entry["marginBalance"]
+            used = entry["maintMargin"]
+            available = balance - used
 
-        for symbol, margin_data in margins.items():
-            margins[symbol] = json.dumps(margin_data)
+            margins[currency] = json.dumps({
+                "balance": balance * XBt_TO_XBT_FACTOR,
+                "used": used * XBt_TO_XBT_FACTOR,
+                "available": free
+            })
 
         self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
 
