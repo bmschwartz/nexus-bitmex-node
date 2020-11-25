@@ -94,12 +94,10 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
 
     async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
         response_payload: dict = {
-            "success": error is None,
             "order": order,
+            "success": error is None,
+            "error": error,
         }
-
-        if error:
-            response_payload.update({"error": error})
 
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
