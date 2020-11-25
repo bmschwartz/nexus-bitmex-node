@@ -102,9 +102,10 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
         order: BitmexOrder = create_order(order_data)
         ticker = await self._data_store.get_ticker(self.account_id, order.symbol)
 
-        currency = ticker.get("underlying")
-        safe = self._client.safe_currency(currency)
-        currency = "BTC" if currency == "XBT" else currency
+        # currency = ticker.get("underlying")
+        # self._client.safe_market(order.symbol)
+        # safe = self._client.safe_currency(currency)
+        currency = "BTC"
 
         margin = await self._data_store.get_margin(self.account_id, currency)
         margin_balance = margin.get("free", 0) if margin else 0
@@ -112,8 +113,11 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
         try:
             order_data = await BitmexManager.place_order(self._client, order, ticker, margin_balance)
             await self.emit_order_created_event(message_id, order=order_data)
-        except Exception as e:
+        except ccxtpro.base.errors.BaseError as e:
+            error = e.args
             await self.emit_order_created_event(message_id, order=None, error=e)
+        except Exception as e:
+            await self.emit_order_created_event(message_id, order=None, error="Unknown Error")
 
 
 class ExchangeAccountManager:

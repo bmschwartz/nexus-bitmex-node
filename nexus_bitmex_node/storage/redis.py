@@ -40,7 +40,7 @@ class RedisDataStore(DataStore):
             margins[currency] = json.dumps({
                 "balance": balance * XBt_TO_XBT_FACTOR,
                 "used": used * XBt_TO_XBT_FACTOR,
-                "available": free
+                "available": avai
             })
 
         self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
