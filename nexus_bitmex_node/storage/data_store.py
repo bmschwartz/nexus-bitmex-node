@@ -30,7 +30,7 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def save_my_trades(self, client_key: str, data: typing.List):
+    async def save_trades(self, client_key: str, data: typing.List):
         ...
 
     @abc.abstractmethod

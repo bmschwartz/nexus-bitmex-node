@@ -1,4 +1,3 @@
-import dataclasses
 import json
 import typing
 from collections import defaultdict
@@ -17,7 +16,7 @@ class RedisDataStore(DataStore):
     def register_listeners(self):
         self.register_margins_updated_listener(self.save_margins)
         self.register_ticker_updated_listener(self.save_tickers)
-        self.register_my_trades_updated_listener(self.save_my_trades)
+        self.register_my_trades_updated_listener(self.save_trades)
         self.register_positions_updated_listener(self.save_positions)
 
     async def start(self, url: str):
@@ -55,7 +54,7 @@ class RedisDataStore(DataStore):
             tickers[symbol] = json.dumps(val)
         self._client.hmset_dict(f"bitmex:{client_key}:tickers", tickers)
 
-    async def save_my_trades(self, client_key: str, data: typing.List):
+    async def save_trades(self, client_key: str, data: typing.List):
         stored: typing.Dict = {}
         trades: typing.List[BitmexTrade] = [create_trade(entry.get("info")) for entry in data]
 
