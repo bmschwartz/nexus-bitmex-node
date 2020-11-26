@@ -70,7 +70,8 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
             self._client.set_sandbox_mode(True)
 
         try:
-            balances = await self._client.fetch_balance()
+            orders = await self._client.fetch_orders(limit=500, params={"reverse": True})
+            await self.emit_my_trades_updated_event(self.account_id, orders)
         except ClientAuthenticationError:
             print(f"invalid creds {self._api_key} {self._api_secret}")
             raise InvalidApiKeysError(self.account_id)

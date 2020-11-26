@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import typing
 from collections import defaultdict
@@ -6,6 +7,7 @@ import aioredis
 from aioredis import Redis
 
 from nexus_bitmex_node.models.order import XBt_TO_XBT_FACTOR
+from nexus_bitmex_node.models.trade import BitmexTrade, create_trade
 from nexus_bitmex_node.storage.data_store import DataStore
 
 
@@ -45,27 +47,29 @@ class RedisDataStore(DataStore):
                 "available": available,
             })
 
-        await self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
+        self._client.hmset_dict(f"bitmex:{client_key}:margins", margins)
 
     async def save_tickers(self, client_key: str, data: typing.Dict):
         tickers: typing.Dict = {}
         for symbol, val in data.items():
             tickers[symbol] = json.dumps(val)
-        await self._client.hmset_dict(f"bitmex:{client_key}:tickers", tickers)
+        self._client.hmset_dict(f"bitmex:{client_key}:tickers", tickers)
 
     async def save_my_trades(self, client_key: str, data: typing.List):
-        trades: typing.Dict = {}
-        for entry in data:
-            trade_id = entry["orderID"]
-            trades[trade_id] = json.dumps(entry)
-        self._client.hmset_dict(f"bitmex:{client_key}:trades", trades)
+        stored: typing.Dict = {}
+        trades: typing.List[BitmexTrade] = [create_trade(entry.get("info")) for entry in data]
+
+        for trade in trades:
+            trade_id = trade.order_id
+            stored[trade_id] = trade.to_json()
+        self._client.hmset_dict(f"bitmex:{client_key}:trades", stored)
 
     async def save_positions(self, client_key: str, data: typing.List):
         positions: typing.Dict = {}
         for entry in data:
             symbol = entry["symbol"]
             positions[symbol] = json.dumps(entry)
-        await self._client.hmset_dict(f"bitmex:{client_key}:positions", positions)
+        self._client.hmset_dict(f"bitmex:{client_key}:positions", positions)
 
     async def get_order(self, client_key: str, order_id: str):
         pass

@@ -9,6 +9,7 @@ from nexus_bitmex_node.event_bus import (
     ExchangeEventEmitter,
 )
 from nexus_bitmex_node.models.order import BitmexOrder
+from nexus_bitmex_node.models.trade import create_trade
 
 
 class BitmexManager(ExchangeEventEmitter):
@@ -67,8 +68,7 @@ class BitmexManager(ExchangeEventEmitter):
         if not data:
             return
 
-        trades = [trade.get("info") for trade in data]
-        await self.emit_my_trades_updated_event(self._client_id, trades)
+        await self.emit_my_trades_updated_event(self._client_id, data)
 
 
 bitmex_manager = BitmexManager(event_bus)
