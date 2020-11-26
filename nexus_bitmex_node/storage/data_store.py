@@ -2,6 +2,8 @@ import abc
 import typing
 
 from nexus_bitmex_node.event_bus import ExchangeEventListener
+from nexus_bitmex_node.models.order import BitmexOrder
+from nexus_bitmex_node.models.trade import BitmexTrade
 
 
 class DataStore(abc.ABC, ExchangeEventListener):
@@ -18,7 +20,7 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def save_order(self, client_key: str):
+    async def save_order(self, client_key: str, order: BitmexOrder):
         ...
 
     @abc.abstractmethod
@@ -30,7 +32,7 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def save_trades(self, client_key: str, data: typing.List):
+    async def save_trades(self, client_key: str, data: typing.List[BitmexTrade]):
         ...
 
     @abc.abstractmethod
@@ -38,7 +40,11 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def get_order(self, client_key: str, order_id: str):
+    async def get_orders(self, client_key: str) -> typing.Dict[str, BitmexOrder]:
+        ...
+
+    @abc.abstractmethod
+    async def get_order(self, client_key: str, order_id: str) -> typing.Optional[BitmexOrder]:
         ...
 
     @abc.abstractmethod
@@ -55,6 +61,14 @@ class DataStore(abc.ABC, ExchangeEventListener):
 
     @abc.abstractmethod
     async def get_position(self, client_key: str, symbol: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_trades(self, client_key: str):
+        ...
+
+    @abc.abstractmethod
+    async def get_trade(self, client_key: str, trade_id: str) -> typing.Optional[BitmexTrade]:
         ...
 
     @abc.abstractmethod

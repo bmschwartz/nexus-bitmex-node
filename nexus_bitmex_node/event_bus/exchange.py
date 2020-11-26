@@ -7,6 +7,7 @@ from .constants import (
     MARGINS_UPDATED_EVENT_KEY,
     POSITIONS_UPDATED_EVENT_KEY,
     MY_TRADES_UPDATED_EVENT_KEY,
+    ORDER_PLACED_EVENT_KEY,
 )
 
 
@@ -23,8 +24,11 @@ class ExchangeEventListener(EventListener):
     def register_positions_updated_listener(self, listener: typing.Callable):
         self.register_listener(POSITIONS_UPDATED_EVENT_KEY, listener)
 
-    def register_my_trades_updated_listener(self, listener: typing.Callable):
+    def register_trades_updated_listener(self, listener: typing.Callable):
         self.register_listener(MY_TRADES_UPDATED_EVENT_KEY, listener)
+
+    def register_order_placed_listener(self, listener: typing.Callable):
+        self.register_listener(ORDER_PLACED_EVENT_KEY, listener)
 
 
 class ExchangeEventEmitter(EventEmitter):
@@ -39,3 +43,6 @@ class ExchangeEventEmitter(EventEmitter):
 
     async def emit_my_trades_updated_event(self, *args, **kwargs):
         await self.emit(MY_TRADES_UPDATED_EVENT_KEY, *args, **kwargs)
+
+    def emit_order_placed_event(self, *args, **kwargs):
+        await self.emit(ORDER_PLACED_EVENT_KEY, *args, **kwargs)

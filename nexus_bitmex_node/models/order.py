@@ -1,4 +1,5 @@
 import enum
+import json
 import typing
 
 import glom
@@ -93,6 +94,20 @@ class BitmexOrder:
 
         multiplier = CONTRACT_VALUE_MULTIPLIERS.get(ticker["symbol"], 1)
         return price * multiplier
+
+    def to_json(self):
+        return json.dumps({
+            "id": self.id,
+            "symbol": self.symbol,
+            "side": self.side,
+            "order_type": self.order_type,
+            "percent": self.percent,
+            "leverage": self.leverage,
+            "price": self.price,
+            "stop_price": self.stop_price,
+            "stop_trigger_type": self.stop_trigger_type,
+            "trailing_stop_percent": self.trailing_stop_percent,
+        })
 
 
 def create_order(order_data: dict) -> BitmexOrder:
