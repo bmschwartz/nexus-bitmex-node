@@ -16,8 +16,9 @@ class RedisDataStore(DataStore):
     def register_listeners(self):
         self.register_margins_updated_listener(self.save_margins)
         self.register_ticker_updated_listener(self.save_tickers)
-        self.register_my_trades_updated_listener(self.save_trades)
+        self.register_trades_updated_listener(self.save_trades)
         self.register_positions_updated_listener(self.save_positions)
+        self.register_order_placed_listener(self.save_order)
 
     async def start(self, url: str):
         self._client = await aioredis.create_redis_pool(url, encoding="utf-8")

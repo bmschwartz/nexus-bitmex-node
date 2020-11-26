@@ -106,6 +106,7 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
         # currency = ticker.get("underlying")
         # self._client.safe_market(order.symbol)
         # safe = self._client.safe_currency(currency)
+        # TODO: Fix this
         currency = "BTC"
 
         margin = await self._data_store.get_margin(self.account_id, "XBt")

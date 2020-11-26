@@ -27,6 +27,7 @@ UPDATE_ORDER_CMD_KEY = "update_order_cmd"
 CANCEL_ORDER_CMD_KEY = "cancel_order_cmd"
 
 # Order events
+ORDER_PLACED_EVENT_KEY = "order_placed_event"
 ORDER_CREATED_EVENT_KEY = "order_created_event"
 ORDER_UPDATED_EVENT_KEY = "order_updated_event"
 ORDER_CANCELED_EVENT_KEY = "order_deleted_event"

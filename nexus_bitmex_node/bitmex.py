@@ -9,7 +9,6 @@ from nexus_bitmex_node.event_bus import (
     ExchangeEventEmitter,
 )
 from nexus_bitmex_node.models.order import BitmexOrder
-from nexus_bitmex_node.models.trade import create_trade
 
 
 class BitmexManager(ExchangeEventEmitter):
