@@ -190,8 +190,10 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             response_payload: dict = {}
 
             try:
-                if await handle_create_order_message(message, self):
+                order_data = await handle_create_order_message(message, self)
+                if order_data:
                     message.ack()
+                    await self.emit_create_order_event(message.correlation_id, order_data)
                     return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
