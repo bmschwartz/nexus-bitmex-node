@@ -5,6 +5,7 @@ import typing
 from datetime import datetime
 
 import ccxtpro
+from ccxt.base.errors import BadRequest, BaseError
 from ccxtpro.base import AuthenticationError as ClientAuthenticationError
 
 from nexus_bitmex_node import settings
@@ -120,7 +121,7 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
         try:
             order_data = await BitmexManager.place_order(self._client, order, ticker, margin_balance)
             await self.emit_order_created_event(message_id, order=order_data)
-        except ccxtpro.base.errors.BaseError as e:
+        except (BaseError, BadRequest) as e:
             error = e.args
             await self.emit_order_created_event(message_id, order=None, error=e)
         except Exception as e:
