@@ -71,7 +71,10 @@ class RedisDataStore(DataStore):
         return margins
 
     async def get_margin(self, client_key: str, symbol: str):
-        return await self._get_single_match_key_element("margins", client_key, symbol, "symbol") or None
+        stored = await self._client.hmget(f"bitmex:{client_key}:margins", symbol, encoding="utf-8")
+        if not stored or not isinstance(stored, list):
+            return {}
+        return json.loads(stored[0])
 
     """ Positions """
     async def save_positions(self, client_key: str, data: typing.List):

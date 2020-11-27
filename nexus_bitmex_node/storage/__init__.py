@@ -8,7 +8,7 @@ from nexus_bitmex_node.storage.redis import RedisDataStore
 
 
 def create_data_store(bus: EventBus) -> DataStore:
-    return LocalDataStore(bus)
+    return RedisDataStore(bus)
 
 
 data_store = create_data_store(event_bus)
