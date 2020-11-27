@@ -95,14 +95,17 @@ class RedisDataStore(DataStore):
     """ Trades """
     async def save_trades(self, client_key: str, data: typing.List):
         new_trades: typing.List[BitmexTrade] = [create_trade(entry.get("info")) for entry in data]
-        to_store = await self.get_trades(client_key)
+        to_store = await self.get_trades(client_key, as_json=True)
         for trade in new_trades:
             trade_id = trade.order_id
             to_store.update({trade_id: trade.to_json()})
         self._client.hmset_dict(f"bitmex:{client_key}:trades", to_store)
 
-    async def get_trades(self, client_key: str):
+    async def get_trades(self, client_key: str, as_json=False):
         stored = typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:trades", encoding="utf-8")
+        if as_json:
+            return stored
+
         trades: typing.Dict[str, BitmexTrade] = {}
         for trade_id, data in stored.items():
             trades[trade_id] = create_trade(json.loads(data))
@@ -114,7 +117,7 @@ class RedisDataStore(DataStore):
 
     """ Tickers """
     async def save_tickers(self, client_key: str, data: typing.Dict):
-        to_store = await self.get_trades(client_key)
+        to_store = await self.get_tickers(client_key)
         for symbol, val in data.items():
             to_store.update({symbol: json.dumps(val)})
         self._client.hmset_dict(f"bitmex:{client_key}:tickers", to_store)

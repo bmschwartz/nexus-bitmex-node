@@ -40,6 +40,23 @@ TRADE_SPEC = {
     "stop_price": "stopPx",
 }
 
+TRADE_JSON_SPEC = {
+    "order_id": "order_id",
+    "symbol": "symbol",
+    "side": "side",
+    "order_type": "order_type",
+    "order_status": "order_status",
+    "order_quantity": "order_quantity",
+    "filled_quantity": "filled_quantity",
+    "avg_price": "avg_price",
+    "client_order_id": "client_order_id",
+    "client_order_link_id": "client_order_link_id",
+    "peg_price_type": "peg_price_type",
+    "peg_offset_value": "peg_offset_value",
+    "text": "text",
+    "stop_price": "stop_price"
+}
+
 
 @dataclass
 class BitmexTrade:
@@ -78,5 +95,8 @@ class BitmexTrade:
 
 
 def create_trade(trade_data: dict) -> BitmexTrade:
-    glommed = glom.glom(trade_data, TRADE_SPEC)
+    try:
+        glommed = glom.glom(trade_data, TRADE_SPEC)
+    except KeyError:
+        glommed = glom.glom(trade_data, TRADE_JSON_SPEC)
     return BitmexTrade(**glommed)
