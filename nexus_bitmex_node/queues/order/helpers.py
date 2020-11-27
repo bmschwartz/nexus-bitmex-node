@@ -17,8 +17,7 @@ async def handle_create_order_message(message: IncomingMessage, event_emitter: O
     if not order_id:
         raise WrongOrderError(order_id)
 
-    await event_emitter.emit_create_order_event(message.correlation_id, data)
-    return True
+    return data
 
 
 async def handle_update_order_message(message: IncomingMessage,
