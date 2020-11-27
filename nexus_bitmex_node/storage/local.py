@@ -26,10 +26,10 @@ class LocalDataStoreClient:
             self._cache[key] = {}
         self._cache[key][field] = data
 
-    def get_all(self, key: str) -> Dict[Any, Any]:
+    def get(self, key: str) -> Dict[Any, Any]:
         return self._cache.get(key, {})
 
-    def get(self, key: str, field: str) -> Any:
+    def get_field(self, key: str, field: str) -> Any:
         return self._cache.get(key, {}).get(field)
 
 
@@ -54,7 +54,7 @@ class LocalDataStore(DataStore):
         self._client.put_dict(f"bitmex:{client_key}:orders", str(order.id), order.to_json())
 
     async def get_orders(self, client_key: str) -> typing.Dict[str, BitmexOrder]:
-        stored: Dict = self._client.get_all(f"bitmex:{client_key}:orders")
+        stored: Dict = self._client.get(f"bitmex:{client_key}:orders")
         orders: Dict[str, BitmexOrder] = {}
         for order_id, data in stored.items():
             orders[order_id] = create_order(json.loads(data))
@@ -76,24 +76,24 @@ class LocalDataStore(DataStore):
 
             balance, used, available = (round(val * XBt_TO_XBT_FACTOR, 8) for val in (balance, used, available,))
 
-            margin_data = json.dumps({
+            margin_data = {
                 "balance": balance,
                 "used": used,
                 "available": available,
-            })
+            }
             to_store.update({currency: margin_data})
 
         self._client.put(f"bitmex:{client_key}:margins", to_store)
 
     async def get_margins(self, client_key: str):
-        stored: Dict = self._client.get_all(f"bitmex:{client_key}:margins")
+        stored: Dict = self._client.get(f"bitmex:{client_key}:margins")
         margins: typing.Dict = {}
         for symbol, data in stored.items():
-            margins[symbol] = json.loads(data)
+            margins[symbol] = data
         return margins
 
     async def get_margin(self, client_key: str, symbol: str):
-        return await self._get_single_match_key_element("margins", client_key, symbol, "symbol") or None
+        return self._client.get_field(f"bitmex:{client_key}:margins", symbol)
 
     """ Positions """
     async def save_positions(self, client_key: str, data: typing.List):
@@ -104,7 +104,7 @@ class LocalDataStore(DataStore):
         self._client.put(f"bitmex:{client_key}:positions", to_store)
 
     async def get_positions(self, client_key: str):
-        stored: typing.Dict = self._client.get_all(f"bitmex:{client_key}:positions")
+        stored: typing.Dict = self._client.get(f"bitmex:{client_key}:positions")
         positions: typing.Dict = {}
         for symbol, data in stored.items():
             positions[symbol] = json.loads(data)
@@ -124,7 +124,7 @@ class LocalDataStore(DataStore):
         self._client.put(f"bitmex:{client_key}:trades", to_store)
 
     async def get_trades(self, client_key: str, as_json=False):
-        stored: typing.Dict = self._client.get_all(f"bitmex:{client_key}:trades")
+        stored: typing.Dict = self._client.get(f"bitmex:{client_key}:trades")
         if as_json:
             return stored
 
@@ -145,7 +145,7 @@ class LocalDataStore(DataStore):
         self._client.put(f"bitmex:{client_key}:tickers", to_store)
 
     async def get_tickers(self, client_key: str):
-        stored: typing.Dict = self._client.get_all(f"bitmex:{client_key}:tickers")
+        stored: typing.Dict = self._client.get(f"bitmex:{client_key}:tickers")
         tickers: typing.Dict = {}
         for symbol, data in stored.items():
             tickers[symbol] = json.loads(data)
@@ -155,8 +155,8 @@ class LocalDataStore(DataStore):
         return await self._get_single_match_key_element("tickers", client_key, symbol, "symbol") or None
 
     async def _get_single_match_key_element(self, type_key: str, client_key: str, entry_key: str, match_key: str):
-        stored = self._client.get(f"bitmex:{client_key}:{type_key}", entry_key)
-        for entry in stored:
+        stored = self._client.get(f"bitmex:{client_key}:{type_key}")
+        for entry in stored.values():
             data = json.loads(entry)
             if data[match_key] == entry_key:
                 return data
