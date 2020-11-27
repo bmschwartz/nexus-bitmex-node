@@ -44,5 +44,5 @@ class ExchangeEventEmitter(EventEmitter):
     async def emit_my_trades_updated_event(self, *args, **kwargs):
         await self.emit(MY_TRADES_UPDATED_EVENT_KEY, *args, **kwargs)
 
-    def emit_order_placed_event(self, *args, **kwargs):
+    async def emit_order_placed_event(self, *args, **kwargs):
         await self.emit(ORDER_PLACED_EVENT_KEY, *args, **kwargs)
