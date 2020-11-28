@@ -3,8 +3,6 @@ from json import JSONDecodeError
 
 from aio_pika import IncomingMessage
 
-from nexus_bitmex_node.event_bus.position import PositionEventEmitter
-
 
 async def handle_close_position_message(message: IncomingMessage) -> bool:
     try:
