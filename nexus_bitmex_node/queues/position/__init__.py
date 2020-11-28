@@ -14,42 +14,42 @@ from aio_pika import (
     DeliveryMode,
 )
 
-from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener
-from nexus_bitmex_node.exceptions import WrongOrderError
-from nexus_bitmex_node.queues.order.helpers import (
-    handle_create_order_message,
-    handle_update_order_message,
+from nexus_bitmex_node.event_bus import PositionEventEmitter, EventBus, PositionEventListener, AccountEventListener
+from nexus_bitmex_node.queues.position.helpers import (
+    handle_close_position_message,
+    handle_add_stop_to_position_message,
+    handle_add_tsl_to_position_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
-from nexus_bitmex_node.queues.order.constants import (
-    BITMEX_CREATE_ORDER_CMD_PREFIX,
-    BITMEX_CREATE_ORDER_QUEUE_PREFIX,
-    BITMEX_UPDATE_ORDER_QUEUE_PREFIX,
-    BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX,
-    BITMEX_CANCEL_ORDER_QUEUE_PREFIX,
-    BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX,
-    BITMEX_ORDER_CREATED_EVENT_KEY,
-    BITMEX_ORDER_UPDATED_EVENT_KEY,
-    BITMEX_ORDER_CANCELED_EVENT_KEY,
+from nexus_bitmex_node.queues.position.constants import (
+    BITMEX_POSITION_CLOSE_CMD_PREFIX,
+    BITMEX_POSITION_ADD_STOP_CMD_PREFIX,
+    BITMEX_POSITION_ADD_TSL_CMD_PREFIX,
+    BITMEX_POSITION_CLOSE_QUEUE_PREFIX,
+    BITMEX_POSITION_ADD_STOP_QUEUE_PREFIX,
+    BITMEX_POSITION_ADD_TSL_QUEUE_PREFIX,
+    BITMEX_POSITION_CLOSED_EVENT_KEY,
+    BITMEX_POSITION_ADDED_STOP_EVENT_KEY,
+    BITMEX_POSITION_TSL_ADDED_EVENT_KEY,
 )
 
 
-class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, AccountEventListener):
-    _recv_order_channel: Channel
-    _send_order_channel: Channel
+class PositionQueueManager(QueueManager, PositionEventEmitter, PositionEventListener, AccountEventListener):
+    _recv_position_channel: Channel
+    _send_position_channel: Channel
 
     _recv_bitmex_exchange: Exchange
     _send_bitmex_exchange: Exchange
 
-    _create_order_queue: Queue
-    _update_order_queue: Queue
-    _cancel_order_queue: Queue
+    _close_position_queue: Queue
+    _position_add_stop_queue: Queue
+    _position_add_tsl_queue: Queue
 
-    _create_order_routing_key: str
-    _update_order_routing_key: str
-    _cancel_order_routing_key: str
+    _close_position_routing_key: str
+    _position_add_stop_routing_key: str
+    _position_add_tsl_routing_key: str
 
     def __init__(
         self,
@@ -58,42 +58,44 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         send_connection: Connection,
     ):
         QueueManager.__init__(self, recv_connection, send_connection)
-        OrderEventEmitter.__init__(self, event_bus)
+        PositionEventEmitter.__init__(self, event_bus)
         AccountEventListener.__init__(self, event_bus)
 
-        self._create_order_consumer_tag = str(uuid4())
-        self._update_order_consumer_tag = str(uuid4())
-        self._cancel_order_consumer_tag = str(uuid4())
+        self._close_position_consumer_tag = str(uuid4())
+        self._position_add_stop_consumer_tag = str(uuid4())
+        self._position_add_tsl_consumer_tag = str(uuid4())
 
     async def start(self):
-        await super(OrderQueueManager, self).start()
+        await super(PositionQueueManager, self).start()
 
     async def declare_queues(self):
         # Can't declare any queues on startup because we don't have a linked account
         pass
 
     async def create_channels(self):
-        self._recv_order_channel = await self.create_channel(self.recv_connection)
-        self._send_order_channel = await self.create_channel(self.send_connection)
-        await self._recv_order_channel.set_qos(prefetch_count=1)
+        self._recv_position_channel = await self.create_channel(self.recv_connection)
+        self._send_position_channel = await self.create_channel(self.send_connection)
+        await self._recv_position_channel.set_qos(prefetch_count=1)
 
     def register_listeners(self):
-        self.register_account_created_listener(listener=self.listen_to_order_queues)
-        self.register_account_deleted_listener(listener=self.stop_listening_to_order_queues)
-        self.register_order_created_listener(self._on_order_created)
+        self.register_account_created_listener(listener=self.listen_to_position_queues)
+        self.register_account_deleted_listener(listener=self.stop_listening_to_position_queues)
+        self.register_position_closed_listener(self._on_position_closed)
+        self.register_added_stop_to_position_event(self._on_position_added_stop)
+        self.register_added_tsl_to_position_event(self._on_position_added_tsl)
 
     async def declare_exchanges(self):
-        self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(
+        self._recv_bitmex_exchange = await self._recv_position_channel.declare_exchange(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-        self._send_bitmex_exchange = await self._send_order_channel.declare_exchange(
+        self._send_bitmex_exchange = await self._send_position_channel.declare_exchange(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-    async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
+    async def _on_position_closed(self, message_id: str, position: typing.Dict, error: Exception = None) -> None:
         response_payload: dict = {
-            "order": order,
+            "position": position,
             "success": error is None,
             "error": error,
         }
@@ -105,99 +107,97 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             content_type="application/json",
         )
         await self._send_bitmex_exchange.publish(
-            response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
+            response, routing_key=BITMEX_POSITION_CLOSED_EVENT_KEY
         )
 
-    async def _on_order_updated(self, order_id: str) -> None:
+    async def _on_position_added_stop(self, position_id: str) -> None:
         # TODO: Do something now that an order has been updated
         pass
 
-    async def _on_order_canceled(self, order_id: str) -> None:
+    async def _on_position_added_tsl(self, position_id: str) -> None:
         # TODO: Do something now that an order has been canceled
         pass
 
-    async def listen_to_order_queues(self, account_id: str):
-        await self.stop_listening_to_order_queues()
-        await self._declare_order_queues(account_id)
-        self._set_order_routing_keys(account_id)
-        await self._bind_order_queues()
+    async def listen_to_position_queues(self, account_id: str):
+        await self.stop_listening_to_position_queues()
+        await self._declare_position_queues(account_id)
+        self._set_position_routing_keys(account_id)
+        await self._bind_position_queues()
         await self._attach_consumers()
 
-    async def stop_listening_to_order_queues(self):
-        if getattr(self, "_create_order_queue", None):
-            await self._create_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._create_order_queue.delete()
+    async def stop_listening_to_position_queues(self):
+        if getattr(self, "_close_position_queue", None):
+            await self._close_position_queue.unbind(self._recv_bitmex_exchange)
+            await self._close_position_queue.delete()
 
-        if getattr(self, "_update_order_queue", None):
-            await self._update_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._update_order_queue.delete()
+        if getattr(self, "_position_add_stop_queue", None):
+            await self._position_add_stop_queue.unbind(self._recv_bitmex_exchange)
+            await self._position_add_stop_queue.delete()
 
-        if getattr(self, "_cancel_order_queue", None):
-            await self._cancel_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._cancel_order_queue.delete()
+        if getattr(self, "_position_add_tsl_queue", None):
+            await self._position_add_tsl_queue.unbind(self._recv_bitmex_exchange)
+            await self._position_add_tsl_queue.delete()
 
-    def _set_order_routing_keys(self, account_id: str):
-        self._create_order_routing_key = f"{BITMEX_CREATE_ORDER_CMD_PREFIX}{account_id}"
-        self._update_order_routing_key = f"{BITMEX_UPDATE_ORDER_CMD_KEY_PREFIX}{account_id}"
-        self._cancel_order_routing_key = f"{BITMEX_CANCEL_ORDER_CMD_KEY_PREFIX}{account_id}"
+    def _set_position_routing_keys(self, account_id: str):
+        self._close_position_routing_key = f"{BITMEX_POSITION_CLOSE_CMD_PREFIX}{account_id}"
+        self._position_add_stop_routing_key = f"{BITMEX_POSITION_ADD_STOP_CMD_PREFIX}{account_id}"
+        self._position_add_tsl_routing_key = f"{BITMEX_POSITION_ADD_TSL_CMD_PREFIX}{account_id}"
 
-    async def _declare_order_queues(self, account_id: str):
+    async def _declare_position_queues(self, account_id: str):
         # Declare queues
-        self._create_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BITMEX_CREATE_ORDER_QUEUE_PREFIX}{account_id}",
+        self._close_position_queue = await self._recv_position_channel.declare_queue(
+            f"{BITMEX_POSITION_CLOSE_QUEUE_PREFIX}{account_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-        self._update_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BITMEX_UPDATE_ORDER_QUEUE_PREFIX}{account_id}",
+        self._position_add_stop_queue = await self._recv_position_channel.declare_queue(
+            f"{BITMEX_POSITION_ADD_STOP_QUEUE_PREFIX}{account_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-        self._cancel_order_queue = await self._recv_order_channel.declare_queue(
-            f"{BITMEX_CANCEL_ORDER_QUEUE_PREFIX}{account_id}",
+        self._position_add_tsl_queue = await self._recv_position_channel.declare_queue(
+            f"{BITMEX_POSITION_ADD_TSL_QUEUE_PREFIX}{account_id}",
             durable=True,
             arguments={"x-expires": QUEUE_EXPIRATION_TIME},
         )
 
-    async def _bind_order_queues(self):
-        await self._create_order_queue.bind(
-            self._send_bitmex_exchange, self._create_order_routing_key
+    async def _bind_position_queues(self):
+        await self._close_position_queue.bind(
+            self._send_bitmex_exchange, self._close_position_routing_key
         )
-        await self._update_order_queue.bind(
-            self._send_bitmex_exchange, self._update_order_routing_key
+        await self._position_add_stop_queue.bind(
+            self._send_bitmex_exchange, self._position_add_stop_routing_key
         )
-        await self._cancel_order_queue.bind(
-            self._send_bitmex_exchange, self._cancel_order_routing_key
+        await self._position_add_tsl_queue.bind(
+            self._send_bitmex_exchange, self._position_add_tsl_routing_key
         )
 
     async def _attach_consumers(self):
-        await self._create_order_queue.consume(
-            self.on_create_order_message, consumer_tag=self._create_order_consumer_tag
+        await self._close_position_queue.consume(
+            self.on_close_position_message, consumer_tag=self._close_position_consumer_tag
         )
-        await self._update_order_queue.consume(
-            self.on_update_order_message, consumer_tag=self._update_order_consumer_tag
+        await self._position_add_stop_queue.consume(
+            self.on_position_add_stop_message, consumer_tag=self._position_add_stop_consumer_tag
         )
-        await self._cancel_order_queue.consume(
-            self.on_cancel_order_message, consumer_tag=self._cancel_order_consumer_tag
+        await self._position_add_tsl_queue.consume(
+            self.on_position_add_tsl_message, consumer_tag=self._position_add_tsl_consumer_tag
         )
 
-    async def on_create_order_message(self, message: IncomingMessage):
+    async def on_close_position_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
-            order_id = None
+            position_id = None
             response_payload: dict = {}
 
             try:
-                order_data = await handle_create_order_message(message, self)
-                if order_data:
+                position_data = await handle_close_position_message(message)
+                if position_data:
                     message.ack()
-                    await self.emit_create_order_event(message.correlation_id, order_data)
+                    await self.emit_close_position_event(message.correlation_id, position_data)
                     return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
-            except WrongOrderError:
-                response_payload.update({"success": False, "error": "Bad Order ID"})
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
 
@@ -208,74 +208,61 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
                 content_type="application/json",
             )
             await self._send_bitmex_exchange.publish(
-                response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
+                response, routing_key=BITMEX_POSITION_CLOSED_EVENT_KEY
             )
 
             message.ack()
 
-    async def on_update_order_message(self, message: IncomingMessage):
+    async def on_position_add_stop_message(self, message: IncomingMessage):
         async with message.process():
-            order_id = None
-
             response_payload: dict = {}
 
             try:
-                order_id = await handle_update_order_message(message, self)
+                position_data = await handle_add_stop_to_position_message(message)
+                if position_data:
+                    message.ack()
+                    await self.emit_position_add_stop_event(message.correlation_id, position_data)
+                    return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
-            except WrongOrderError as e:
-                order_id = e.order_id
-                response_payload.update(
-                    {"success": False, "error": "No matching order"}
-                )
             else:
-                response_payload.update({"success": True})
+                response_payload.update({"success": False, "error": "Unknown Error"})
 
-            if order_id:
-                response_payload.update({"orderId": order_id})
-
+            response = Message(
+                bytes(json.dumps(response_payload), "utf-8"),
+                delivery_mode=DeliveryMode.PERSISTENT,
+                correlation_id=message.correlation_id,
+                content_type="application/json",
+            )
             await self._send_bitmex_exchange.publish(
-                Message(
-                    bytes(json.dumps(response_payload), "utf-8"),
-                    delivery_mode=DeliveryMode.PERSISTENT,
-                    correlation_id=message.correlation_id,
-                    content_type="application/json",
-                ),
-                routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY,
+                response, routing_key=BITMEX_POSITION_ADDED_STOP_EVENT_KEY
             )
 
             message.ack()
 
-    async def on_cancel_order_message(self, message: IncomingMessage):
+    async def on_position_add_tsl_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
-            order_id = None
-
             response_payload: dict = {}
 
             try:
-                pass
+                position_data = await handle_add_stop_to_position_message(message)
+                if position_data:
+                    message.ack()
+                    await self.emit_position_add_tsl_event(message.correlation_id, position_data)
+                    return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
-            except WrongOrderError as e:
-                order_id = e.order_id
-                response_payload.update(
-                    {"success": False, "error": "No matching order"}
-                )
             else:
-                response_payload.update({"success": True})
+                response_payload.update({"success": False, "error": "Unknown Error"})
 
-            if order_id:
-                await self._on_order_canceled(order_id)
-                response_payload.update({"orderId": order_id})
-
+            response = Message(
+                bytes(json.dumps(response_payload), "utf-8"),
+                delivery_mode=DeliveryMode.PERSISTENT,
+                correlation_id=message.correlation_id,
+                content_type="application/json",
+            )
             await self._send_bitmex_exchange.publish(
-                Message(
-                    bytes(json.dumps(response_payload), "utf-8"),
-                    delivery_mode=DeliveryMode.PERSISTENT,
-                    correlation_id=message.correlation_id,
-                    content_type="application/json",
-                ),
-                routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY,
+                response, routing_key=BITMEX_POSITION_TSL_ADDED_EVENT_KEY
             )
 
             message.ack()

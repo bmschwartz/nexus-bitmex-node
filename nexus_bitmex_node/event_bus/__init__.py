@@ -4,5 +4,6 @@ from .emitter import EventEmitter
 from .account import AccountEventListener, AccountEventEmitter
 from .exchange import ExchangeEventEmitter, ExchangeEventListener
 from .order import OrderEventEmitter, OrderEventListener
+from .position import PositionEventEmitter, PositionEventListener
 
 event_bus = EventBus()
