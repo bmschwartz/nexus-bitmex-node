@@ -4,37 +4,25 @@ import glom
 from attr import dataclass
 from glom import Coalesce
 
+from nexus_bitmex_node.models.base import BitmexBaseModel
+
 POSITION_SPEC = {
     "symbol": "symbol",
-    "is_open": Coalesce("isOpen", default=False),
+    "is_open": Coalesce("isOpen", default=None),
     "currency": Coalesce("currency", default=None),
     "underlying": Coalesce("underlying", default=None),
     "quote_currency": Coalesce("quoteCurrency", default=None),
     "leverage": Coalesce("leverage", default=None),
-    "simple_quantity": Coalesce("simpleQty", default=0),
-    "current_quantity": Coalesce("currentQty", default=0),
+    "simple_quantity": Coalesce("simpleQty", default=None),
+    "current_quantity": Coalesce("currentQty", default=None),
     "mark_price": Coalesce("markPrice", default=None),
     "margin": Coalesce("posMargin", default=None),
     "maintenance_margin": Coalesce("maintMargin", default=None),
 }
 
-POSITION_JSON_SPEC = {
-    "symbol": "symbol",
-    "is_open": "is_open",
-    "currency": "currency",
-    "underlying": "underlying",
-    "quote_currency": "quote_currency",
-    "leverage": "leverage",
-    "simple_quantity": "simple_quantity",
-    "current_quantity": "current_quantity",
-    "mark_price": "mark_price",
-    "margin": "margin",
-    "maintenance_margin": "maintenance_margin"
-}
-
 
 @dataclass
-class BitmexPosition:
+class BitmexPosition(BitmexBaseModel):
     symbol: str
     is_open: bool
     currency: str
@@ -66,6 +54,6 @@ class BitmexPosition:
 def create_position(position_data: dict) -> BitmexPosition:
     try:
         glommed = glom.glom(position_data, POSITION_SPEC)
+        return BitmexPosition(**glommed)
     except (glom.core.PathAccessError, KeyError):
-        glommed = glom.glom(position_data, POSITION_JSON_SPEC)
-    return BitmexPosition(**glommed)
+        return BitmexPosition(**position_data)

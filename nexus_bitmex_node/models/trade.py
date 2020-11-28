@@ -5,6 +5,8 @@ import typing
 import glom
 from attr import dataclass
 
+from nexus_bitmex_node.models.base import BitmexBaseModel
+
 
 class TradeOrderStatus(enum.Enum):
     NEW = "New"
@@ -59,7 +61,7 @@ TRADE_JSON_SPEC = {
 
 
 @dataclass
-class BitmexTrade:
+class BitmexTrade(BitmexBaseModel):
     order_id: str
     symbol: str
     side: TradeOrderSide
@@ -97,6 +99,6 @@ class BitmexTrade:
 def create_trade(trade_data: dict) -> BitmexTrade:
     try:
         glommed = glom.glom(trade_data, TRADE_SPEC)
+        return BitmexTrade(**glommed)
     except KeyError:
-        glommed = glom.glom(trade_data, TRADE_JSON_SPEC)
-    return BitmexTrade(**glommed)
+        return BitmexTrade(**trade_data)

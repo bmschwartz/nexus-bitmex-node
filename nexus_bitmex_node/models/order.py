@@ -3,8 +3,9 @@ import json
 import typing
 
 import glom
-import ccxtpro
 from attr import dataclass
+
+from nexus_bitmex_node.models.base import BitmexBaseModel
 
 
 class OrderSide(enum.Enum):
@@ -46,7 +47,7 @@ CONTRACT_VALUE_MULTIPLIERS = {
 
 
 @dataclass
-class BitmexOrder:
+class BitmexOrder(BitmexBaseModel):
     id: int
     symbol: str
     side: OrderSide
@@ -111,5 +112,8 @@ class BitmexOrder:
 
 
 def create_order(order_data: dict) -> BitmexOrder:
-    glommed = glom.glom(order_data, ORDER_SPEC)
-    return BitmexOrder(**glommed)
+    try:
+        glommed = glom.glom(order_data, ORDER_SPEC)
+        return BitmexOrder(**glommed)
+    except (glom.core.PathAccessError, KeyError):
+        return BitmexOrder(**order_data)
