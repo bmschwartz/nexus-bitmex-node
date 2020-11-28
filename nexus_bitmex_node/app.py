@@ -9,13 +9,14 @@ from uvicorn.loops import asyncio as uv_asyncio
 from nexus_bitmex_node import settings
 from nexus_bitmex_node.event_bus import event_bus
 from nexus_bitmex_node.exchange_account import ExchangeAccountManager
-from nexus_bitmex_node.queues import AccountQueueManager, OrderQueueManager
+from nexus_bitmex_node.queues import AccountQueueManager, OrderQueueManager, PositionQueueManager
 from nexus_bitmex_node.storage import data_store
 from nexus_bitmex_node.settings import REDIS_URL, AMQP_URL
 
 exchange_account_manager: ExchangeAccountManager
 account_queue_manager: AccountQueueManager
 order_queue_manager: OrderQueueManager
+position_queue_manager: PositionQueueManager
 
 uv_asyncio.asyncio_setup()
 
@@ -40,6 +41,9 @@ async def on_shutdown():
     if order_queue_manager:
         await order_queue_manager.stop()
 
+    if position_queue_manager:
+        await position_queue_manager.stop()
+
     if data_store:
         await data_store.stop()
 
@@ -51,6 +55,7 @@ async def setup_queue_managers():
     global exchange_account_manager
     global account_queue_manager
     global order_queue_manager
+    global position_queue_manager
 
     recv_connection: Connection = await aio_pika.connect_robust(AMQP_URL)
     send_connection: Connection = await aio_pika.connect_robust(AMQP_URL)
@@ -62,6 +67,9 @@ async def setup_queue_managers():
 
     order_queue_manager = OrderQueueManager(event_bus, recv_connection, send_connection)
     await order_queue_manager.start()
+
+    position_queue_manager = PositionQueueManager(event_bus, recv_connection, send_connection)
+    await position_queue_manager.start()
 
 
 routes = [

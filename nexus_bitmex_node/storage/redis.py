@@ -34,7 +34,6 @@ class RedisDataStore(DataStore):
         existing: BitmexOrder = await self._client.hmget(f"bitmex:{client_key}:orders", order.id, encoding="utf-8")
         existing.update(order)
         await self._client.hmset_dict(f"bitmex:{client_key}:orders", order.id, existing.to_json())
-        print("stored order")
 
     async def get_orders(self, client_key: str) -> typing.Dict[str, BitmexOrder]:
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:orders", encoding="utf-8")
@@ -53,11 +52,12 @@ class RedisDataStore(DataStore):
         to_store = await self.get_margins(client_key)
         for entry in data.get("info", []):
             currency = entry["currency"]
-            balance = entry.get("availableMargin") or entry.get("marginBalance")
-            used = entry["maintMargin"]
+            existing = to_store.get(entry["currency"], {})
 
-            print(balance)
-            if balance is None:
+            balance = entry.get("availableMargin") or entry.get("marginBalance")
+            used = entry.get("maintMargin") or existing.get("used")
+
+            if None in (balance, used):
                 continue
 
             available = balance - used
@@ -71,7 +71,6 @@ class RedisDataStore(DataStore):
             })
             to_store.update({currency: margin_data})
         await self._client.hmset_dict(f"bitmex:{client_key}:margins", to_store)
-        print("stored margins")
 
     async def get_margins(self, client_key: str):
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:margins", encoding="utf-8")
@@ -95,7 +94,6 @@ class RedisDataStore(DataStore):
             existing: BitmexPosition = to_store.get(symbol, new_position)
             to_store.update({symbol: existing.update(new_position).to_json()})
         await self._client.hmset_dict(f"bitmex:{client_key}:positions", to_store)
-        print("stored positions")
 
     async def get_positions(self, client_key: str, as_json=False) -> typing.Dict[str, BitmexPosition]:
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:positions", encoding="utf-8")
@@ -114,13 +112,12 @@ class RedisDataStore(DataStore):
     """ Trades """
     async def save_trades(self, client_key: str, data: typing.List):
         new_trades: typing.List[BitmexTrade] = [create_trade(entry.get("info")) for entry in data]
-        to_store = await self.get_trades(client_key)
+        to_store = await self.get_trades(client_key, as_json=True)
         for new_trade in new_trades:
             trade_id = new_trade.order_id
-            existing: BitmexTrade = to_store.get(trade_id, new_trade)
+            existing: BitmexTrade = create_trade(json.loads(to_store.get(trade_id, new_trade.to_json())))
             to_store.update({trade_id: existing.update(new_trade).to_json()})
         await self._client.hmset_dict(f"bitmex:{client_key}:trades", to_store)
-        print("stored trades")
 
     async def get_trades(self, client_key: str, as_json=False):
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:trades", encoding="utf-8")
@@ -145,7 +142,6 @@ class RedisDataStore(DataStore):
             existing: BitmexSymbol = to_store.get(symbol, new_symbol)
             to_store.update({symbol: existing.update(new_symbol).to_json()})
         await self._client.hmset_dict(f"bitmex:{client_key}:tickers", to_store)
-        print("stored tickers")
 
     async def get_tickers(self, client_key: str, as_json=False):
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:tickers", encoding="utf-8")

@@ -135,8 +135,18 @@ class ExchangeAccount(
         except Exception as e:
             await self.emit_order_created_event(message_id, order=None, error="Unknown Error")
 
-    async def _on_close_position(self, message_id: str, symbol: str):
+    async def _on_close_position(self, message_id: str, data: typing.Dict):
+        symbol: str = str(data.get("symbol"))
+        if not symbol:
+            await self.emit_position_closed_event(message_id, None, "Symbol not found")
+
         position = await self._data_store.get_position(self.account_id, symbol)
+        if not position:
+            await self.emit_position_closed_event(message_id, None, "Position not found")
+
+        print("a")
+        print(self._client.private_post_order)
+        print(self._client.privatePostOrder)
 
 
 class ExchangeAccountManager:
