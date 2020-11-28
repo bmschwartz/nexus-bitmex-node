@@ -1,5 +1,4 @@
 import typing
-
 from .listener import EventListener
 from .emitter import EventEmitter
 from .constants import (
@@ -15,20 +14,20 @@ class ExchangeEventListener(EventListener):
     def register_listeners(self):
         raise NotImplementedError()
 
-    def register_ticker_updated_listener(self, listener: typing.Callable):
-        self.register_listener(TICKER_UPDATED_EVENT_KEY, listener)
+    def register_ticker_updated_listener(self, listener: typing.Callable, loop):
+        self.register_listener(TICKER_UPDATED_EVENT_KEY, listener, loop)
 
-    def register_margins_updated_listener(self, listener: typing.Callable):
-        self.register_listener(MARGINS_UPDATED_EVENT_KEY, listener)
+    def register_margins_updated_listener(self, listener: typing.Callable, loop):
+        self.register_listener(MARGINS_UPDATED_EVENT_KEY, listener, loop)
 
-    def register_positions_updated_listener(self, listener: typing.Callable):
-        self.register_listener(POSITIONS_UPDATED_EVENT_KEY, listener)
+    def register_positions_updated_listener(self, listener: typing.Callable, loop):
+        self.register_listener(POSITIONS_UPDATED_EVENT_KEY, listener, loop)
 
-    def register_trades_updated_listener(self, listener: typing.Callable):
-        self.register_listener(MY_TRADES_UPDATED_EVENT_KEY, listener)
+    def register_trades_updated_listener(self, listener: typing.Callable, loop):
+        self.register_listener(MY_TRADES_UPDATED_EVENT_KEY, listener, loop)
 
-    def register_order_placed_listener(self, listener: typing.Callable):
-        self.register_listener(ORDER_PLACED_EVENT_KEY, listener)
+    def register_order_placed_listener(self, listener: typing.Callable, loop):
+        self.register_listener(ORDER_PLACED_EVENT_KEY, listener, loop)
 
 
 class ExchangeEventEmitter(EventEmitter):

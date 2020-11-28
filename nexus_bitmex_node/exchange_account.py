@@ -62,8 +62,9 @@ class ExchangeAccount(
         bitmex_manager.stop_streams()
 
     def register_listeners(self):
-        self.register_create_order_listener(self._on_create_order)
-        self.register_close_position_listener(self._on_close_position)
+        loop = asyncio.get_event_loop()
+        self.register_create_order_listener(self._on_create_order, loop)
+        self.register_close_position_listener(self._on_close_position, loop)
 
     async def _connect_client(self):
         self._client = ccxtpro.bitmex(

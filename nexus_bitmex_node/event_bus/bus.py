@@ -17,8 +17,8 @@ class EventBus:
         :param kwargs:
         :return:
         """
-        for cb in self._events[event_key]:
-            asyncio.ensure_future(cb(*args, **kwargs))
+        for cb, loop in self._events[event_key]:
+            asyncio.ensure_future(cb(*args, **kwargs), loop=loop)
 
     def publish_sync(self, event_key, *args, **kwargs):
         """
@@ -31,13 +31,12 @@ class EventBus:
         for cb in self._events[event_key]:
             cb(*args, **kwargs)
 
-    def register(self, event_key, callback):
+    def register(self, event_key, callback, loop):
         """
-        Registers another callback function to `event_key` event
+        Registers another callback function to `event_key` event to be run on `loop`
         :param event_key:
         :param callback:
+        :param loop:
         :return:
         """
-        # TODO: Add ability to unregister
-        #  -> return a "key" to caller that they can use to .unregister(key)
-        self._events[event_key].add(callback)
+        self._events[event_key].add((callback, loop))

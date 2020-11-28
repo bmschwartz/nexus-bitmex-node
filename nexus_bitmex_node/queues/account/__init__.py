@@ -81,7 +81,8 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
         self._heartbeat_task = None
 
     def register_listeners(self):
-        self.register_account_heartbeat_listener(self._send_heartbeat)
+        loop = asyncio.get_event_loop()
+        self.register_account_heartbeat_listener(self._send_heartbeat, loop)
 
     async def start(self):
         await super(AccountQueueManager, self).start()
@@ -217,6 +218,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
 
             response_payload: dict = {}
 
+            print("Received account creation message")
             try:
                 account_id = await handle_create_account_message(
                     message, self._exchange_account_manager, self
@@ -227,6 +229,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             else:
+                print(f"Account created {account_id}")
                 await self._on_account_created(account_id)
                 response_payload.update({"success": True})
 

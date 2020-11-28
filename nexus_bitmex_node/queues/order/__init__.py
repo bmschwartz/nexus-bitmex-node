@@ -1,5 +1,6 @@
 import json
 import typing
+import asyncio
 from json import JSONDecodeError
 from uuid import uuid4
 
@@ -78,9 +79,10 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         await self._recv_order_channel.set_qos(prefetch_count=1)
 
     def register_listeners(self):
-        self.register_account_created_listener(listener=self.listen_to_order_queues)
-        self.register_account_deleted_listener(listener=self.stop_listening_to_order_queues)
-        self.register_order_created_listener(self._on_order_created)
+        loop = asyncio.get_event_loop()
+        self.register_account_created_listener(self.listen_to_order_queues, loop)
+        self.register_account_deleted_listener(self.stop_listening_to_order_queues, loop)
+        self.register_order_created_listener(self._on_order_created, loop)
 
     async def declare_exchanges(self):
         self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(

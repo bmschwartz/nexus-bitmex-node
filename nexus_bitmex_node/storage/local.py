@@ -37,11 +37,12 @@ class LocalDataStore(DataStore):
     _client: LocalDataStoreClient
 
     def register_listeners(self):
-        self.register_margins_updated_listener(self.save_margins)
-        self.register_ticker_updated_listener(self.save_tickers)
-        self.register_trades_updated_listener(self.save_trades)
-        self.register_positions_updated_listener(self.save_positions)
-        self.register_order_placed_listener(self.save_order)
+        loop = asyncio.get_event_loop()
+        self.register_margins_updated_listener(self.save_margins, loop)
+        self.register_ticker_updated_listener(self.save_tickers, loop)
+        self.register_trades_updated_listener(self.save_trades, loop)
+        self.register_positions_updated_listener(self.save_positions, loop)
+        self.register_order_placed_listener(self.save_order, loop)
 
     async def start(self):
         self._client = LocalDataStoreClient()

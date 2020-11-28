@@ -19,27 +19,27 @@ class AccountEventListener(EventListener):
         raise NotImplementedError()
 
     # Command listeners
-    def register_create_account_listener(self, listener: typing.Callable):
-        self.register_listener(CREATE_ACCOUNT_CMD_KEY, listener)
+    def register_create_account_listener(self, listener: typing.Callable, loop):
+        self.register_listener(CREATE_ACCOUNT_CMD_KEY, listener, loop)
 
-    def register_update_account_listener(self, listener: typing.Callable):
-        self.register_listener(UPDATE_ACCOUNT_CMD_KEY, listener)
+    def register_update_account_listener(self, listener: typing.Callable, loop):
+        self.register_listener(UPDATE_ACCOUNT_CMD_KEY, listener, loop)
 
-    def register_delete_account_listener(self, listener: typing.Callable):
-        self.register_listener(DELETE_ACCOUNT_CMD_KEY, listener)
+    def register_delete_account_listener(self, listener: typing.Callable, loop):
+        self.register_listener(DELETE_ACCOUNT_CMD_KEY, listener, loop)
 
-    def register_account_heartbeat_listener(self, listener: typing.Callable):
-        self.register_listener(ACCOUNT_HEARTBEAT_KEY, listener)
+    def register_account_heartbeat_listener(self, listener: typing.Callable, loop):
+        self.register_listener(ACCOUNT_HEARTBEAT_KEY, listener, loop)
 
     # Result listeners
-    def register_account_created_listener(self, listener: typing.Callable):
-        self.register_listener(ACCOUNT_CREATED_EVENT_KEY, listener)
+    def register_account_created_listener(self, listener: typing.Callable, loop):
+        self.register_listener(ACCOUNT_CREATED_EVENT_KEY, listener, loop)
 
-    def register_account_updated_listener(self, listener: typing.Callable):
-        self.register_listener(ACCOUNT_UPDATED_EVENT_KEY, listener)
+    def register_account_updated_listener(self, listener: typing.Callable, loop):
+        self.register_listener(ACCOUNT_UPDATED_EVENT_KEY, listener, loop)
 
-    def register_account_deleted_listener(self, listener: typing.Callable):
-        self.register_listener(ACCOUNT_DELETED_EVENT_KEY, listener)
+    def register_account_deleted_listener(self, listener: typing.Callable, loop):
+        self.register_listener(ACCOUNT_DELETED_EVENT_KEY, listener, loop)
 
 
 class AccountEventEmitter(EventEmitter):

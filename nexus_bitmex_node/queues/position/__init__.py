@@ -1,5 +1,6 @@
 import json
 import typing
+import asyncio
 from json import JSONDecodeError
 from uuid import uuid4
 
@@ -88,12 +89,13 @@ class PositionQueueManager(
         await self._recv_position_channel.set_qos(prefetch_count=1)
 
     def register_listeners(self):
-        self.register_account_created_listener(listener=self.listen_to_position_queues)
-        self.register_account_deleted_listener(listener=self.stop_listening_to_position_queues)
-        self.register_positions_updated_listener(self._on_positions_updated)
-        self.register_position_closed_listener(self._on_position_closed)
-        self.register_added_stop_to_position_event(self._on_position_added_stop)
-        self.register_added_tsl_to_position_event(self._on_position_added_tsl)
+        loop = asyncio.get_event_loop()
+        self.register_account_created_listener(self.listen_to_position_queues, loop)
+        self.register_account_deleted_listener(self.stop_listening_to_position_queues, loop)
+        self.register_positions_updated_listener(self._on_positions_updated, loop)
+        self.register_position_closed_listener(self._on_position_closed, loop)
+        self.register_added_stop_to_position_event(self._on_position_added_stop, loop)
+        self.register_added_tsl_to_position_event(self._on_position_added_tsl, loop)
 
     async def declare_exchanges(self):
         self._recv_bitmex_exchange = await self._recv_position_channel.declare_exchange(
@@ -104,9 +106,25 @@ class PositionQueueManager(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-    async def _on_positions_updated(self, message_id: str, positions: typing.List, error: Exception = None) -> None:
+    async def _on_positions_updated(self, account_id: str,  data: typing.List, error: Exception = None) -> None:
+        parsed_positions = [create_position(position) for position in data]
+
+        to_send = []
+        for position in parsed_positions:
+            pos = {}
+            for attr, val in position.__dict__.items():
+                if val is None:
+                    continue
+                pos[attr] = val
+            if pos:
+                pos.update({"exchange": "BITMEX", "account_id": account_id})
+                to_send.append(json.dumps(pos))
+
+        if not to_send:
+            return
+
         response_payload: dict = {
-            "positions": [create_position(position).to_json() for position in positions],
+            "positions": to_send,
             "success": error is None,
             "error": error,
         }
@@ -114,7 +132,6 @@ class PositionQueueManager(
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
-            correlation_id=message_id,
             content_type="application/json",
         )
         await self._send_bitmex_exchange.publish(
