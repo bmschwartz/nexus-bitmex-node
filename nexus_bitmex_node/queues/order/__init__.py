@@ -16,7 +16,6 @@ from aio_pika import (
 
 from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener
 from nexus_bitmex_node.exceptions import WrongOrderError
-from nexus_bitmex_node.models.order import BitmexOrder
 from nexus_bitmex_node.queues.order.helpers import (
     handle_create_order_message,
     handle_update_order_message,
@@ -190,7 +189,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             response_payload: dict = {}
 
             try:
-                order_data = await handle_create_order_message(message, self)
+                order_data = await handle_create_order_message(message)
                 if order_data:
                     message.ack()
                     await self.emit_create_order_event(message.correlation_id, order_data)
@@ -221,7 +220,11 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
             response_payload: dict = {}
 
             try:
-                order_id = await handle_update_order_message(message, self)
+                order_data = await handle_update_order_message(message)
+                if order_data:
+                    message.ack()
+                    await self.emit_update_order_event(message.correlation_id, order_data)
+                    return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             except WrongOrderError as e:
@@ -230,10 +233,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
                     {"success": False, "error": "No matching order"}
                 )
             else:
-                response_payload.update({"success": True})
-
-            if order_id:
-                response_payload.update({"orderId": order_id})
+                response_payload.update({"success": False, "error": "Unknown Error"})
 
             await self._send_bitmex_exchange.publish(
                 Message(
