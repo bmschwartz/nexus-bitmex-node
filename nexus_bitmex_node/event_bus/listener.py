@@ -9,5 +9,5 @@ class EventListener:
     def register_listeners(self):
         raise NotImplementedError()
 
-    def register_listener(self, event_key, callback):
-        self._event_bus.register(event_key, callback)
+    def register_listener(self, event_key, callback, loop):
+        self._event_bus.register(event_key, callback, loop)
