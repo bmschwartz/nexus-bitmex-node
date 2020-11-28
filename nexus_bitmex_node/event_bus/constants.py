@@ -31,3 +31,13 @@ ORDER_PLACED_EVENT_KEY = "order_placed_event"
 ORDER_CREATED_EVENT_KEY = "order_created_event"
 ORDER_UPDATED_EVENT_KEY = "order_updated_event"
 ORDER_CANCELED_EVENT_KEY = "order_deleted_event"
+
+# Position commands
+POSITION_CLOSE_CMD_KEY = "position_close_cmd"
+POSITION_ADD_STOP_CMD_KEY = "position_add_stop_cmd"
+POSITION_ADD_TSL_CMD_KEY = "position_add_tsl_cmd"
+
+# Position events
+POSITION_CLOSED_EVENT_KEY = "position_closed_event"
+POSITION_ADDED_STOP_EVENT_KEY = "position_added_stop_event"
+POSITION_ADDED_TSL_EVENT_KEY = "position_added_tsl_event"
