@@ -6,6 +6,7 @@ import aioredis
 from aioredis import Redis
 
 from nexus_bitmex_node.models.order import XBt_TO_XBT_FACTOR, BitmexOrder, create_order
+from nexus_bitmex_node.models.position import BitmexPosition, create_position
 from nexus_bitmex_node.models.trade import BitmexTrade, create_trade
 from nexus_bitmex_node.storage.data_store import DataStore
 
@@ -84,16 +85,16 @@ class RedisDataStore(DataStore):
             to_store.update({symbol: json.dumps(entry)})
         self._client.hmset_dict(f"bitmex:{client_key}:positions", to_store)
 
-    async def get_positions(self, client_key: str):
+    async def get_positions(self, client_key: str) -> typing.Dict[str, BitmexPosition]:
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:positions", encoding="utf-8")
         positions: typing.Dict = {}
         for symbol, data in stored.items():
-            positions[symbol] = json.loads(data)
+            positions[symbol] = create_position(json.loads(data))
         return positions
 
-    async def get_position(self, client_key: str, symbol: str):
+    async def get_position(self, client_key: str, symbol: str) -> typing.Optional[BitmexPosition]:
         element = await self._get_single_match_key_element("positions", client_key, symbol, "symbol")
-        return create_trade(element) if element else None
+        return create_position(element) if element else None
 
     """ Trades """
     async def save_trades(self, client_key: str, data: typing.List):

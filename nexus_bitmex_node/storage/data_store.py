@@ -3,6 +3,7 @@ import typing
 
 from nexus_bitmex_node.event_bus import ExchangeEventListener
 from nexus_bitmex_node.models.order import BitmexOrder
+from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.trade import BitmexTrade
 
 
@@ -56,11 +57,11 @@ class DataStore(abc.ABC, ExchangeEventListener):
         ...
 
     @abc.abstractmethod
-    async def get_positions(self, client_key: str):
+    async def get_positions(self, client_key: str) -> typing.Dict[str, BitmexPosition]:
         ...
 
     @abc.abstractmethod
-    async def get_position(self, client_key: str, symbol: str):
+    async def get_position(self, client_key: str, symbol: str) -> typing.Optional[BitmexPosition]:
         ...
 
     @abc.abstractmethod

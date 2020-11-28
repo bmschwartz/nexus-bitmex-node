@@ -16,6 +16,20 @@ POSITION_SPEC = {
     "maintenance_margin": "maintMargin",
 }
 
+POSITION_JSON_SPEC = {
+    "symbol": "symbol",
+    "is_open": "is_open",
+    "currency": "currency",
+    "underlying": "underlying",
+    "quote_currency": "quote_currency",
+    "leverage": "leverage",
+    "simple_quantity": "simple_quantity",
+    "current_quantity": "current_quantity",
+    "mark_price": "mark_price",
+    "margin": "margin",
+    "maintenance_margin": "maintenance_margin"
+}
+
 
 @dataclass
 class BitmexPosition:
@@ -31,7 +45,25 @@ class BitmexPosition:
     margin: float
     maintenance_margin: float
 
+    def to_json(self):
+        return {
+            "symbol": "symbol",
+            "is_open": "is_open",
+            "currency": "currency",
+            "underlying": "underlying",
+            "quote_currency": "quote_currency",
+            "leverage": "leverage",
+            "simple_quantity": "simple_quantity",
+            "current_quantity": "current_quantity",
+            "mark_price": "mark_price",
+            "margin": "margin",
+            "maintenance_margin": "maintenance_margin"
+        }
+
 
 def create_position(position_data: dict) -> BitmexPosition:
-    glommed = glom.glom(position_data, POSITION_SPEC)
+    try:
+        glommed = glom.glom(position_data, POSITION_SPEC)
+    except KeyError:
+        glommed = glom.glom(position_data, POSITION_JSON_SPEC)
     return BitmexPosition(**glommed)
