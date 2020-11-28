@@ -14,7 +14,9 @@ from aio_pika import (
     DeliveryMode,
 )
 
-from nexus_bitmex_node.event_bus import PositionEventEmitter, EventBus, PositionEventListener, AccountEventListener
+from nexus_bitmex_node.event_bus import PositionEventEmitter, EventBus, PositionEventListener, AccountEventListener, \
+    ExchangeEventListener
+from nexus_bitmex_node.models.position import create_position
 from nexus_bitmex_node.queues.position.helpers import (
     handle_close_position_message,
     handle_add_stop_to_position_message,
@@ -33,10 +35,17 @@ from nexus_bitmex_node.queues.position.constants import (
     BITMEX_POSITION_CLOSED_EVENT_KEY,
     BITMEX_POSITION_ADDED_STOP_EVENT_KEY,
     BITMEX_POSITION_TSL_ADDED_EVENT_KEY,
+    BITMEX_POSITION_UPDATED_EVENT_KEY,
 )
 
 
-class PositionQueueManager(QueueManager, PositionEventEmitter, PositionEventListener, AccountEventListener):
+class PositionQueueManager(
+    QueueManager,
+    ExchangeEventListener,
+    PositionEventEmitter,
+    PositionEventListener,
+    AccountEventListener
+):
     _recv_position_channel: Channel
     _send_position_channel: Channel
 
@@ -60,6 +69,7 @@ class PositionQueueManager(QueueManager, PositionEventEmitter, PositionEventList
         QueueManager.__init__(self, recv_connection, send_connection)
         PositionEventEmitter.__init__(self, event_bus)
         AccountEventListener.__init__(self, event_bus)
+        ExchangeEventListener.__init__(self, event_bus)
 
         self._close_position_consumer_tag = str(uuid4())
         self._position_add_stop_consumer_tag = str(uuid4())
@@ -80,6 +90,7 @@ class PositionQueueManager(QueueManager, PositionEventEmitter, PositionEventList
     def register_listeners(self):
         self.register_account_created_listener(listener=self.listen_to_position_queues)
         self.register_account_deleted_listener(listener=self.stop_listening_to_position_queues)
+        self.register_positions_updated_listener(self._on_positions_updated)
         self.register_position_closed_listener(self._on_position_closed)
         self.register_added_stop_to_position_event(self._on_position_added_stop)
         self.register_added_tsl_to_position_event(self._on_position_added_tsl)
@@ -91,6 +102,23 @@ class PositionQueueManager(QueueManager, PositionEventEmitter, PositionEventList
 
         self._send_bitmex_exchange = await self._send_position_channel.declare_exchange(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
+        )
+
+    async def _on_positions_updated(self, message_id: str, positions: typing.List, error: Exception = None) -> None:
+        response_payload: dict = {
+            "positions": [create_position(position).to_json() for position in positions],
+            "success": error is None,
+            "error": error,
+        }
+
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            correlation_id=message_id,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_POSITION_UPDATED_EVENT_KEY
         )
 
     async def _on_position_closed(self, message_id: str, position: typing.Dict, error: Exception = None) -> None:
