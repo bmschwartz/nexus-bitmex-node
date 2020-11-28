@@ -1,3 +1,4 @@
+import asyncio
 import typing
 from collections import defaultdict
 
@@ -17,7 +18,7 @@ class EventBus:
         :return:
         """
         for cb in self._events[event_key]:
-            await cb(*args, **kwargs)
+            asyncio.ensure_future(cb(*args, **kwargs))
 
     def publish_sync(self, event_key, *args, **kwargs):
         """
