@@ -12,7 +12,7 @@ from nexus_bitmex_node import settings
 from nexus_bitmex_node.bitmex import bitmex_manager, BitmexManager
 from nexus_bitmex_node.event_bus import (
     OrderEventListener, OrderEventEmitter,
-    EventBus, AccountEventEmitter, ExchangeEventEmitter,
+    EventBus, AccountEventEmitter, ExchangeEventEmitter, PositionEventEmitter, PositionEventListener,
 )
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
@@ -20,7 +20,14 @@ from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
 
-class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListener, OrderEventEmitter):
+class ExchangeAccount(
+    AccountEventEmitter,
+    ExchangeEventEmitter,
+    OrderEventListener,
+    OrderEventEmitter,
+    PositionEventListener,
+    PositionEventEmitter
+):
     def __init__(self, bus: EventBus, data_store: DataStore, account_id: str, api_key: str, api_secret: str):
         """
         Connect Bitmex exchange account
@@ -56,6 +63,7 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
 
     def register_listeners(self):
         self.register_create_order_listener(self._on_create_order)
+        self.register_close_position_listener(self._on_close_position)
 
     async def _connect_client(self):
         self._client = ccxtpro.bitmex(
@@ -126,6 +134,9 @@ class ExchangeAccount(AccountEventEmitter, ExchangeEventEmitter, OrderEventListe
             await self.emit_order_created_event(message_id, order=None, error=e)
         except Exception as e:
             await self.emit_order_created_event(message_id, order=None, error="Unknown Error")
+
+    async def _on_close_position(self, message_id: str, symbol: str):
+        position = await self._data_store.get_position(self.account_id, symbol)
 
 
 class ExchangeAccountManager:
