@@ -38,7 +38,7 @@ class BitmexPosition(BitmexBaseModel):
     def to_json(self):
         return json.dumps({
             "symbol": self.symbol,
-            "is_open": self.is_open,
+            "is_open": self.current_quantity not in (0, None),
             "currency": self.currency,
             "underlying": self.underlying,
             "quote_currency": self.quote_currency,

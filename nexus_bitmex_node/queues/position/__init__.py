@@ -107,24 +107,12 @@ class PositionQueueManager(
         )
 
     async def _on_positions_updated(self, account_id: str,  data: typing.List, error: Exception = None) -> None:
-        parsed_positions = [create_position(position) for position in data]
-
-        to_send = []
-        for position in parsed_positions:
-            pos = {}
-            for attr, val in position.__dict__.items():
-                if val is None:
-                    continue
-                pos[attr] = val
-            if pos:
-                pos.update({"exchange": "BITMEX", "account_id": account_id})
-                to_send.append(json.dumps(pos))
-
-        if not to_send:
-            return
+        positions = [create_position(position).to_json() for position in data]
 
         response_payload: dict = {
-            "positions": to_send,
+            "positions": positions,
+            "accountId": account_id,
+            "exchange": "BITMEX",
             "success": error is None,
             "error": error,
         }
@@ -134,6 +122,7 @@ class PositionQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             content_type="application/json",
         )
+
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_POSITION_UPDATED_EVENT_KEY
         )
