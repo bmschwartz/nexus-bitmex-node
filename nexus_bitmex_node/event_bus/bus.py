@@ -8,7 +8,7 @@ class EventBus:
     _events: typing.Dict
 
     def __init__(self):
-        self._events = defaultdict(set)
+        self._events = defaultdict(dict)
 
     async def publish(self, event_key, *args, **kwargs):
         """
@@ -18,14 +18,17 @@ class EventBus:
         :param kwargs:
         :return:
         """
-        for cb, loop, rate_limit, last_call in self._events[event_key]:
+        for cb, info in self._events[event_key].items():
+
             now = time.time() * 1000
+            last_call = info["last_call"]
+            rate_limit = info["rate_limit"]
+
             do_call = True if not rate_limit else (now - last_call >= rate_limit)
-            last_call = now
+
             if do_call:
-                asyncio.ensure_future(cb(*args, **kwargs), loop=loop)
-            else:
-                print(f"not calling {event_key}")
+                asyncio.ensure_future(cb(*args, **kwargs), loop=info["loop"])
+                self._events[event_key][cb].update({"last_call": now})
 
     def register(self, event_key, callback, loop, rate_limit: float = None):
         """
@@ -37,4 +40,4 @@ class EventBus:
         :return:
         """
         now = time.time() * 1000
-        self._events[event_key].add((callback, loop, rate_limit, now))
+        self._events[event_key].update({callback: {"loop": loop, "rate_limit": rate_limit, "last_call": now}})
