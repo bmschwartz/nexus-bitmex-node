@@ -172,6 +172,7 @@ class PositionQueueManager(
             await self._attach_consumers()
 
     async def stop_listening_to_position_queues(self):
+        if getattr(self, "_attached_consumers", False):
             self._attached_consumers = False
 
         if getattr(self, "_close_position_queue", None):
