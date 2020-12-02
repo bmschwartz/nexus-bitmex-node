@@ -94,7 +94,10 @@ class RedisDataStore(DataStore):
         for new_position in new_positions:
             symbol = new_position.symbol
             existing: BitmexPosition = to_store.get(symbol, new_position)
-            to_store.update({symbol: existing.update(new_position).to_json()})
+            to_store.update({symbol: existing.update(new_position)})
+        for symbol, position in to_store.items():
+            to_store.update(({symbol: position.to_json()}))
+
         await self._client.hmset_dict(f"bitmex:{client_key}:positions", to_store)
 
     async def get_positions(self, client_key: str, as_json=False) -> typing.Dict[str, BitmexPosition]:
@@ -142,7 +145,9 @@ class RedisDataStore(DataStore):
         for new_symbol in new_symbols:
             symbol = new_symbol.symbol
             existing: BitmexSymbol = to_store.get(symbol, new_symbol)
-            to_store.update({symbol: existing.update(new_symbol).to_json()})
+            to_store.update({symbol: existing.update(new_symbol)})
+        for symbol, ticker in to_store.items():
+            to_store.update(({symbol: ticker.to_json()}))
         await self._client.hmset_dict(f"bitmex:{client_key}:tickers", to_store)
 
     async def get_tickers(self, client_key: str, as_json=False):

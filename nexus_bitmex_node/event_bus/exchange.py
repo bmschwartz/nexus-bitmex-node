@@ -14,20 +14,20 @@ class ExchangeEventListener(EventListener):
     def register_listeners(self):
         raise NotImplementedError()
 
-    def register_ticker_updated_listener(self, listener: typing.Callable, loop):
-        self.register_listener(TICKER_UPDATED_EVENT_KEY, listener, loop)
+    def register_ticker_updated_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(TICKER_UPDATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_margins_updated_listener(self, listener: typing.Callable, loop):
-        self.register_listener(MARGINS_UPDATED_EVENT_KEY, listener, loop)
+    def register_margins_updated_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(MARGINS_UPDATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_positions_updated_listener(self, listener: typing.Callable, loop):
-        self.register_listener(POSITIONS_UPDATED_EVENT_KEY, listener, loop)
+    def register_positions_updated_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(POSITIONS_UPDATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_trades_updated_listener(self, listener: typing.Callable, loop):
-        self.register_listener(MY_TRADES_UPDATED_EVENT_KEY, listener, loop)
+    def register_trades_updated_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(MY_TRADES_UPDATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_order_placed_listener(self, listener: typing.Callable, loop):
-        self.register_listener(ORDER_PLACED_EVENT_KEY, listener, loop)
+    def register_order_placed_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(ORDER_PLACED_EVENT_KEY, listener, loop, rate_limit)
 
 
 class ExchangeEventEmitter(EventEmitter):

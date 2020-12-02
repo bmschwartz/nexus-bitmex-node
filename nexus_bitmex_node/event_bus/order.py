@@ -16,23 +16,23 @@ class OrderEventListener(EventListener):
     def register_listeners(self):
         raise NotImplementedError()
 
-    def register_create_order_listener(self, listener: typing.Callable, loop):
-        self.register_listener(CREATE_ORDER_CMD_KEY, listener, loop)
+    def register_create_order_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(CREATE_ORDER_CMD_KEY, listener, loop, rate_limit)
 
-    def register_update_order_listener(self, listener: typing.Callable, loop):
-        self.register_listener(UPDATE_ORDER_CMD_KEY, listener, loop)
+    def register_update_order_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(UPDATE_ORDER_CMD_KEY, listener, loop, rate_limit)
 
-    def register_cancel_order_listener(self, listener: typing.Callable, loop):
-        self.register_listener(CANCEL_ORDER_CMD_KEY, listener, loop)
+    def register_cancel_order_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(CANCEL_ORDER_CMD_KEY, listener, loop, rate_limit)
 
-    def register_order_created_listener(self, listener: typing.Callable, loop):
-        self.register_listener(ORDER_CREATED_EVENT_KEY, listener, loop)
+    def register_order_created_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(ORDER_CREATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_order_updated_listener(self, listener: typing.Callable, loop):
-        self.register_listener(ORDER_UPDATED_EVENT_KEY, listener, loop)
+    def register_order_updated_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(ORDER_UPDATED_EVENT_KEY, listener, loop, rate_limit)
 
-    def register_order_canceled_listener(self, listener: typing.Callable, loop):
-        self.register_listener(ORDER_CANCELED_EVENT_KEY, listener, loop)
+    def register_order_canceled_listener(self, listener: typing.Callable, loop, rate_limit: float = None):
+        self.register_listener(ORDER_CANCELED_EVENT_KEY, listener, loop, rate_limit)
 
 
 class OrderEventEmitter(EventEmitter):

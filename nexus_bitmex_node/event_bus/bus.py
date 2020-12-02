@@ -1,4 +1,5 @@
 import asyncio
+import time
 import typing
 from collections import defaultdict
 
@@ -17,26 +18,23 @@ class EventBus:
         :param kwargs:
         :return:
         """
-        for cb, loop in self._events[event_key]:
-            asyncio.ensure_future(cb(*args, **kwargs), loop=loop)
+        for cb, loop, rate_limit, last_call in self._events[event_key]:
+            now = time.time() * 1000
+            do_call = True if not rate_limit else (now - last_call >= rate_limit)
+            last_call = now
+            if do_call:
+                asyncio.ensure_future(cb(*args, **kwargs), loop=loop)
+            else:
+                print(f"not calling {event_key}")
 
-    def publish_sync(self, event_key, *args, **kwargs):
-        """
-        Synchronously calls the callback methods listening to the `event_key` event
-        :param event_key:
-        :param args:
-        :param kwargs:
-        :return:
-        """
-        for cb in self._events[event_key]:
-            cb(*args, **kwargs)
-
-    def register(self, event_key, callback, loop):
+    def register(self, event_key, callback, loop, rate_limit: float = None):
         """
         Registers another callback function to `event_key` event to be run on `loop`
         :param event_key:
         :param callback:
         :param loop:
+        :param rate_limit: [Optional] If provided, ignores consecutive messages sent in this time window (milliseconds)
         :return:
         """
-        self._events[event_key].add((callback, loop))
+        now = time.time() * 1000
+        self._events[event_key].add((callback, loop, rate_limit, now))

@@ -61,6 +61,8 @@ class PositionQueueManager(
     _position_add_stop_routing_key: str
     _position_add_tsl_routing_key: str
 
+    _attached_consumers: bool
+
     def __init__(
         self,
         event_bus: EventBus,
@@ -92,7 +94,7 @@ class PositionQueueManager(
         loop = asyncio.get_event_loop()
         self.register_account_created_listener(self.listen_to_position_queues, loop)
         self.register_account_deleted_listener(self.stop_listening_to_position_queues, loop)
-        self.register_positions_updated_listener(self._on_positions_updated, loop)
+        self.register_positions_updated_listener(self._on_positions_updated, loop, rate_limit=5000)
         self.register_position_closed_listener(self._on_position_closed, loop)
         self.register_added_stop_to_position_event(self._on_position_added_stop, loop)
         self.register_added_tsl_to_position_event(self._on_position_added_tsl, loop)
@@ -157,7 +159,10 @@ class PositionQueueManager(
         await self._declare_position_queues(account_id)
         self._set_position_routing_keys(account_id)
         await self._bind_position_queues()
-        await self._attach_consumers()
+
+        if not getattr(self, "_attached_consumers", False):
+            self._attached_consumers = True
+            await self._attach_consumers()
 
     async def stop_listening_to_position_queues(self):
         if getattr(self, "_close_position_queue", None):
@@ -218,6 +223,8 @@ class PositionQueueManager(
         await self._position_add_tsl_queue.consume(
             self.on_position_add_tsl_message, consumer_tag=self._position_add_tsl_consumer_tag
         )
+
+        self._attached_consumers = True
 
     async def on_close_position_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
