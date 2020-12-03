@@ -51,9 +51,12 @@ class BitmexPosition(BitmexBaseModel):
         })
 
 
-def create_position(position_data: dict) -> BitmexPosition:
+def create_position(position_data: dict, local=False) -> BitmexPosition:
+    if local:
+        return BitmexPosition(**position_data)
+
     try:
         glommed = glom.glom(position_data, POSITION_SPEC)
         return BitmexPosition(**glommed)
-    except (glom.core.PathAccessError, KeyError):
+    except (glom.core.CoalesceError, glom.core.PathAccessError, KeyError):
         return BitmexPosition(**position_data)
