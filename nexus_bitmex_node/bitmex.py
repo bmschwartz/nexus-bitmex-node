@@ -8,7 +8,8 @@ from nexus_bitmex_node.event_bus import (
     event_bus,
     ExchangeEventEmitter,
 )
-from nexus_bitmex_node.models.order import BitmexOrder
+from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType
+from nexus_bitmex_node.models.position import BitmexPosition
 
 
 class BitmexManager(ExchangeEventEmitter):
@@ -34,7 +35,31 @@ class BitmexManager(ExchangeEventEmitter):
         quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
         symbol = client.safe_symbol(order.symbol)
 
-        return await client.create_limit_order(symbol, side, quantity, price)
+        order_func = client.create_limit_order if price else client.create_market_order
+        return await order_func(symbol, side, quantity, price)
+
+    @staticmethod
+    async def close_position(
+        client: ccxtpro.bitmex,
+        symbol: str,
+        position: BitmexPosition,
+        price: typing.Optional[float] = None,
+        fraction: typing.Optional[float] = None,
+    ):
+        symbol = client.safe_symbol(symbol)
+        params: typing.Dict[str, typing.Any] = {"execInst": "Close"}
+        order_quantity = None
+
+        if fraction:
+            min_max_func = max if position.current_quantity > 0 else min
+            order_quantity = -1 * min_max_func(1, round(fraction * position.current_quantity))
+
+        # symbol, type, side, amount, price=None, params={}
+        side = BitmexOrder.convert_order_side(
+            OrderSide.SELL if position.current_quantity > 0 else OrderSide.BUY)
+
+        order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if price else OrderType.MARKET)
+        return await client.create_order(symbol, order_type, side, order_quantity, price, params=params)
 
     async def watch_streams(self, client_id: str, client: ccxtpro.bitmex):
         self._client_id = client_id

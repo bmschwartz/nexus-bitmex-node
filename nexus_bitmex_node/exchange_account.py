@@ -16,6 +16,7 @@ from nexus_bitmex_node.event_bus import (
 )
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
 from nexus_bitmex_node.models.order import BitmexOrder, create_order
+from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
@@ -65,6 +66,8 @@ class ExchangeAccount(
         loop = asyncio.get_event_loop()
         self.register_create_order_listener(self._on_create_order, loop)
         self.register_close_position_listener(self._on_close_position, loop)
+        self.register_add_stop_to_position_listener(self._on_add_stop_to_position, loop)
+        self.register_add_tsl_to_position_listener(self._on_add_tsl_to_position, loop)
 
     async def _connect_client(self):
         self._client = ccxtpro.bitmex(
@@ -138,16 +141,76 @@ class ExchangeAccount(
 
     async def _on_close_position(self, message_id: str, data: typing.Dict):
         symbol: str = str(data.get("symbol"))
+        price: typing.Optional[float] = data.get("price")
+        fraction: typing.Optional[float] = data.get("fraction")
+
         if not symbol:
             await self.emit_position_closed_event(message_id, None, "Symbol not found")
+            return
 
-        position = await self._data_store.get_position(self.account_id, symbol)
+        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol)
         if not position:
             await self.emit_position_closed_event(message_id, None, "Position not found")
+            return
 
-        print("a")
-        print(self._client.private_post_order)
-        print(self._client.privatePostOrder)
+        try:
+            close_order = await BitmexManager.close_position(self._client, symbol, position, price, fraction)
+            await self.emit_position_closed_event(message_id, close_order)
+        except (BaseError, BadRequest) as e:
+            error = e.args
+            await self.emit_position_closed_event(message_id, None, error=e)
+        except Exception as e:
+            await self.emit_position_closed_event(message_id, None, error="Unknown Error")
+
+    async def _on_add_stop_to_position(self, message_id: str, data: typing.Dict):
+        """
+        const position = this.positions[symbol];
+        if (!position) {
+          const positionError = { description: `${this.user.username} does not have a position on ${symbol}`, message: `No position on ${symbol}`, type: 'NO_POSITION' };
+          logError(this, JSON.stringify(positionError));
+          throw positionError;
+        }
+
+        const symbolObject = await Symbol.findOne({ symbol });
+        const { fractionalDigits, tickSize } = symbolObject;
+        let stopPx = parseFloat(stopPrice.toFixed(fractionalDigits));
+        stopPx = stopPx - (stopPx % tickSize);
+        const stopSide = position.currentQty > 0 ? this.orderSide.sell : this.orderSide.buy;
+
+        const stopPayload = {
+          stopPx,
+          symbol,
+          side: stopSide,
+          ordType: 'Stop',
+          execInst: `Close,${stopTriggerPriceType}`
+        };
+
+        return await this.executeApiCall(this.httpClient.privatePostOrder, stopPayload);
+        """
+        symbol: str = str(data.get("symbol"))
+        price: typing.Optional[float] = data.get("price")
+        fraction: typing.Optional[float] = data.get("fraction")
+
+        if not symbol:
+            await self.emit_added_stop_to_position_event(message_id, None, "Symbol not found")
+            return
+
+        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol)
+        if not position:
+            await self.emit_added_stop_to_position_event(message_id, None, "Position not found")
+            return
+
+        try:
+            stop_order = await BitmexManager.add_stop_to_position(self._client, symbol, position, price, fraction)
+            await self.emit_added_stop_to_position_event(message_id, stop_order)
+        except (BaseError, BadRequest) as e:
+            error = e.args
+            await self.emit_added_stop_to_position_event(message_id, None, error=e)
+        except Exception as e:
+            await self.emit_added_stop_to_position_event(message_id, None, error="Unknown Error")
+
+    async def _on_add_tsl_to_position(self, message_id: str, data: typing.Dict):
+            pass
 
 
 class ExchangeAccountManager:

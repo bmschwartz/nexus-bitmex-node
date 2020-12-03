@@ -112,7 +112,7 @@ class RedisDataStore(DataStore):
 
     async def get_position(self, client_key: str, symbol: str) -> typing.Optional[BitmexPosition]:
         element = await self._get_single_match_key_element("positions", client_key, symbol, "symbol")
-        return create_position(element) if element else None
+        return create_position(element, local=True) if element else None
 
     """ Trades """
     async def save_trades(self, client_key: str, data: typing.List):

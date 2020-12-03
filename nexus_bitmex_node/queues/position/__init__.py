@@ -136,9 +136,8 @@ class PositionQueueManager(
             response, routing_key=BITMEX_POSITION_UPDATED_EVENT_KEY
         )
 
-    async def _on_position_closed(self, message_id: str, position: typing.Dict, error: Exception = None) -> None:
+    async def _on_position_closed(self, message_id: str, close_order: typing.Dict, error: Exception = None) -> None:
         response_payload: dict = {
-            "position": position,
             "success": error is None,
             "error": error,
         }
