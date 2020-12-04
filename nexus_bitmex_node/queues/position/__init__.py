@@ -36,7 +36,7 @@ from nexus_bitmex_node.queues.position.constants import (
     BITMEX_POSITION_ADD_TSL_QUEUE_PREFIX,
     BITMEX_POSITION_CLOSED_EVENT_KEY,
     BITMEX_POSITION_ADDED_STOP_EVENT_KEY,
-    BITMEX_POSITION_TSL_ADDED_EVENT_KEY,
+    BITMEX_POSITION_ADDED_TSL_EVENT_KEY,
     BITMEX_POSITION_UPDATED_EVENT_KEY,
 )
 
@@ -152,13 +152,37 @@ class PositionQueueManager(
             response, routing_key=BITMEX_POSITION_CLOSED_EVENT_KEY
         )
 
-    async def _on_position_added_stop(self, position_id: str) -> None:
-        # TODO: Do something now that an order has been updated
-        pass
+    async def _on_position_added_stop(self, message_id: str, stop_order: typing.Optional[dict], error: Exception = None) -> None:
+        response_payload: dict = {
+            "success": error is None,
+            "error": error,
+        }
 
-    async def _on_position_added_tsl(self, position_id: str) -> None:
-        # TODO: Do something now that an order has been canceled
-        pass
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            correlation_id=message_id,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_POSITION_ADDED_STOP_EVENT_KEY
+        )
+
+    async def _on_position_added_tsl(self, message_id: str, tsl_order: typing.Optional[dict], error: Exception = None) -> None:
+        response_payload: dict = {
+            "success": error is None,
+            "error": error,
+        }
+
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            correlation_id=message_id,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_POSITION_ADDED_TSL_EVENT_KEY
+        )
 
     async def listen_to_position_queues(self, account_id: str):
         await self.stop_listening_to_position_queues()
@@ -264,7 +288,7 @@ class PositionQueueManager(
             message.ack()
 
     async def on_position_add_stop_message(self, message: IncomingMessage):
-        async with message.process():
+        async with message.process(ignore_processed=True):
             response_payload: dict = {}
 
             try:
@@ -295,7 +319,7 @@ class PositionQueueManager(
             response_payload: dict = {}
 
             try:
-                position_data = await handle_add_stop_to_position_message(message)
+                position_data = await handle_add_tsl_to_position_message(message)
                 if position_data:
                     message.ack()
                     await self.emit_position_add_tsl_event(message.correlation_id, position_data)
@@ -312,7 +336,7 @@ class PositionQueueManager(
                 content_type="application/json",
             )
             await self._send_bitmex_exchange.publish(
-                response, routing_key=BITMEX_POSITION_TSL_ADDED_EVENT_KEY
+                response, routing_key=BITMEX_POSITION_ADDED_TSL_EVENT_KEY
             )
 
             message.ack()

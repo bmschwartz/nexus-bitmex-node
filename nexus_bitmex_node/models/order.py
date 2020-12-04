@@ -60,14 +60,14 @@ class BitmexOrder(BitmexBaseModel):
     trailing_stop_percent: typing.Optional[float]
 
     @staticmethod
-    def convert_order_type(order_type: OrderType) -> str:
+    def convert_order_type(order_type: OrderType) -> typing.Optional[str]:
         if order_type == OrderType.LIMIT:
             return "Limit"
         elif order_type == OrderType.MARKET:
             return "Market"
         elif order_type == OrderType.STOP:
             return "Stop"
-        return ""
+        return None
 
     @staticmethod
     def convert_order_side(side: OrderSide) -> str:
@@ -76,6 +76,14 @@ class BitmexOrder(BitmexBaseModel):
         elif side == OrderSide.SELL:
             return "Sell"
         return ""
+
+    @staticmethod
+    def convert_trigger_type(trigger_type: StopTriggerType) -> typing.Optional[str]:
+        if trigger_type == StopTriggerType.LAST_PRICE:
+            return "LastPrice"
+        elif trigger_type == StopTriggerType.MARK_PRICE:
+            return "MarkPrice"
+        return None
 
     @staticmethod
     async def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float, ticker: typing.Dict):

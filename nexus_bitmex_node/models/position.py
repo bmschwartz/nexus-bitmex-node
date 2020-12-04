@@ -5,6 +5,7 @@ from attr import dataclass
 from glom import Coalesce
 
 from nexus_bitmex_node.models.base import BitmexBaseModel
+from nexus_bitmex_node.models.order import OrderSide
 
 POSITION_SPEC = {
     "symbol": "symbol",
@@ -49,6 +50,10 @@ class BitmexPosition(BitmexBaseModel):
             "margin": self.margin,
             "maintenance_margin": self.maintenance_margin
         })
+
+    @property
+    def side(self):
+        return OrderSide.BUY if self.current_quantity > 0 else OrderSide.SELL
 
 
 def create_position(position_data: dict, local=False) -> BitmexPosition:

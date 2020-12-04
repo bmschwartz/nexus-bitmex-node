@@ -46,19 +46,34 @@ class BitmexSymbol(BitmexBaseModel):
             "max_price": self.max_price,
             "max_order_qty": self.max_order_qty,
             "tick_size": self.tick_size,
-            "last_price_protected": self.last_price_protected
+            "last_price_protected": self.last_price_protected,
         })
 
     @property
     def is_open(self):
         return self.state == 'Open'
 
+    @property
+    def fractional_digits(self) -> int:
+        exponential_form = "{:e}".format(self.tick_size)
+        split_character = '+' if '+' in exponential_form else '-'
+        base, exponent = exponential_form.replace('e', '').split(split_character)
+        base = base.rstrip('0')
+        exponent = int(exponent)
+        additional_digits = 0
+        if '.' in base:
+            additional_digits += len(base.split('.').pop())
+
+        return int(exponent) + additional_digits
+
 
 def create_symbol(symbol_data: dict) -> BitmexSymbol:
     try:
         glommed = glom.glom(symbol_data, SYMBOL_SPEC)
-        return BitmexSymbol(**glommed)
+        symbol = BitmexSymbol(**glommed)
+        return symbol
     except (glom.core.PathAccessError, KeyError):
         if "is_open" in symbol_data:
             symbol_data.pop("is_open")
-        return BitmexSymbol(**symbol_data)
+        symbol = BitmexSymbol(**symbol_data)
+        return symbol

@@ -4,6 +4,7 @@ import typing
 
 import glom
 from attr import dataclass
+from glom import Coalesce
 
 from nexus_bitmex_node.models.base import BitmexBaseModel
 
@@ -34,8 +35,8 @@ TRADE_SPEC = {
     "order_quantity": ("orderQty", float),
     "filled_quantity": ("cumQty", float),
     "avg_price": "avgPx",
-    "client_order_id": "clOrdID",
-    "client_order_link_id": "clOrdLinkID",
+    "client_order_id": Coalesce("clOrdID", default=None),
+    "client_order_link_id": Coalesce("clOrdLinkID", default=None),
     "peg_price_type": "pegPriceType",
     "peg_offset_value": "pegOffsetValue",
     "text": "text",
@@ -100,5 +101,21 @@ def create_trade(trade_data: dict) -> BitmexTrade:
     try:
         glommed = glom.glom(trade_data, TRADE_SPEC)
         return BitmexTrade(**glommed)
-    except KeyError:
-        return BitmexTrade(**trade_data)
+    except (KeyError, TypeError):
+        data = {
+            "order_id": trade_data.get("orderID"),
+            "symbol": trade_data.get("symbol"),
+            "side": trade_data.get("side"),
+            "order_quantity": trade_data.get("orderQty"),
+            "order_type": trade_data.get("ordType"),
+            "order_status": trade_data.get("ordStatus"),
+            "filled_quantity": trade_data.get("cumQty"),
+            "avg_price": trade_data.get("avgPx"),
+            "client_order_id": trade_data.get("clOrdID"),
+            "client_order_link_id": trade_data.get("clOrdLinkID"),
+            "peg_price_type": trade_data.get("pegPriceType"),
+            "peg_offset_value": trade_data.get("pegOffsetValue"),
+            "text": trade_data.get("text"),
+            "stop_price": trade_data.get("stopPx")
+        }
+        return BitmexTrade(**data)

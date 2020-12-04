@@ -8,6 +8,6 @@ BITMEX_POSITION_ADDED_STOP_EVENT_KEY = "bitmex.event.position.added_stop"
 
 BITMEX_POSITION_ADD_TSL_QUEUE_PREFIX = "AddTslBitmexPosition:"
 BITMEX_POSITION_ADD_TSL_CMD_PREFIX = "bitmex.cmd.position.add_tsl."
-BITMEX_POSITION_TSL_ADDED_EVENT_KEY = "bitmex.event.position.added_tsl"
+BITMEX_POSITION_ADDED_TSL_EVENT_KEY = "bitmex.event.position.added_tsl"
 
 BITMEX_POSITION_UPDATED_EVENT_KEY = "bitmex.event.position.updated"

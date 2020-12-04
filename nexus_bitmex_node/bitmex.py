@@ -8,8 +8,9 @@ from nexus_bitmex_node.event_bus import (
     event_bus,
     ExchangeEventEmitter,
 )
-from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType
+from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
+from nexus_bitmex_node.models.symbol import BitmexSymbol
 
 
 class BitmexManager(ExchangeEventEmitter):
@@ -54,12 +55,74 @@ class BitmexManager(ExchangeEventEmitter):
             min_max_func = max if position.current_quantity > 0 else min
             order_quantity = -1 * min_max_func(1, round(fraction * position.current_quantity))
 
-        # symbol, type, side, amount, price=None, params={}
-        side = BitmexOrder.convert_order_side(
-            OrderSide.SELL if position.current_quantity > 0 else OrderSide.BUY)
+        side = BitmexOrder.convert_order_side(position.side)
 
         order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if price else OrderType.MARKET)
         return await client.create_order(symbol, order_type, side, order_quantity, price, params=params)
+
+    @staticmethod
+    async def add_stop_to_position(
+        client: ccxtpro.bitmex,
+        symbol: BitmexSymbol,
+        position: BitmexPosition,
+        raw_price: float,
+        trigger_price_type: StopTriggerType
+    ):
+        trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(StopTriggerType(trigger_price_type))
+        if not trigger_type:
+            raise ValueError("Invalid Stop Trigger Type")
+        params: typing.Dict[str, typing.Any] = {"execInst": f"Close,{trigger_type}"}
+
+        # Rounds price off to the correct tick_size and digits
+        stop_price = float(round(raw_price, symbol.fractional_digits))
+        stop_price = stop_price - (stop_price % symbol.tick_size)
+
+        side = BitmexOrder.convert_order_side(position.side)
+
+        order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
+        market_symbol = client.safe_symbol(symbol.symbol)
+
+        return await client.create_order(market_symbol, order_type, side, amount=None, price=stop_price, params=params)
+
+    @staticmethod
+    async def add_tsl_to_position(
+        client: ccxtpro.bitmex,
+        symbol: BitmexSymbol,
+        position: BitmexPosition,
+        tsl_percent: float,
+        trigger_price_type: StopTriggerType
+    ):
+        trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(StopTriggerType(trigger_price_type))
+        if not trigger_type:
+            raise ValueError("Invalid Stop Trigger Type")
+
+        tsl_fraction = tsl_percent / 100
+        trailing_offset_factor = (1 - tsl_fraction) if position.side == OrderSide.BUY else (1 + tsl_fraction)
+
+        order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
+        market_symbol = client.safe_symbol(symbol.symbol)
+
+        use_last_price = trigger_price_type == StopTriggerType.LAST_PRICE.value
+        current_price = symbol.last_price_protected if use_last_price else symbol.mark_price
+
+        peg_offset = -1 * current_price * (1 - trailing_offset_factor)
+        stop_price = current_price * trailing_offset_factor
+
+        tsl_side = BitmexOrder.convert_order_side(OrderSide.SELL if position.side == OrderSide.BUY else OrderSide.BUY)
+        stop_px = float(round(stop_price, symbol.fractional_digits))
+        stop_px = stop_px - (stop_px % symbol.tick_size)
+
+        peg_offset_value = float(round(peg_offset, symbol.fractional_digits))
+        peg_offset_value = peg_offset_value - (peg_offset_value % symbol.tick_size)
+
+        params: typing.Dict[str, typing.Any] = {
+            "stopPx": stop_px,
+            "pegPriceType": "TrailingStopPeg",
+            "pegOffsetValue": peg_offset_value,
+            "execInst": f"Close,{trigger_type}",
+        }
+
+        return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price, params=params)
 
     async def watch_streams(self, client_id: str, client: ccxtpro.bitmex):
         self._client_id = client_id

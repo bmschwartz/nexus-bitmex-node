@@ -15,8 +15,9 @@ from nexus_bitmex_node.event_bus import (
     EventBus, AccountEventEmitter, ExchangeEventEmitter, PositionEventEmitter, PositionEventListener,
 )
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
-from nexus_bitmex_node.models.order import BitmexOrder, create_order
+from nexus_bitmex_node.models.order import BitmexOrder, create_order, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
+from nexus_bitmex_node.models.symbol import BitmexSymbol, create_symbol
 from nexus_bitmex_node.settings import ServerMode
 from nexus_bitmex_node.storage import DataStore
 
@@ -163,54 +164,76 @@ class ExchangeAccount(
             await self.emit_position_closed_event(message_id, None, error="Unknown Error")
 
     async def _on_add_stop_to_position(self, message_id: str, data: typing.Dict):
-        """
-        const position = this.positions[symbol];
-        if (!position) {
-          const positionError = { description: `${this.user.username} does not have a position on ${symbol}`, message: `No position on ${symbol}`, type: 'NO_POSITION' };
-          logError(this, JSON.stringify(positionError));
-          throw positionError;
-        }
+        raw_symbol: str = str(data.get("symbol"))
+        stop_price: float = data.get("stopPrice", -1)
+        trigger_price_type: StopTriggerType = data.get("stopTriggerPriceType", StopTriggerType.LAST_PRICE.value)
 
-        const symbolObject = await Symbol.findOne({ symbol });
-        const { fractionalDigits, tickSize } = symbolObject;
-        let stopPx = parseFloat(stopPrice.toFixed(fractionalDigits));
-        stopPx = stopPx - (stopPx % tickSize);
-        const stopSide = position.currentQty > 0 ? this.orderSide.sell : this.orderSide.buy;
+        if not raw_symbol:
+            await self.emit_added_stop_to_position_event(message_id, None, "Symbol required")
+            return
 
-        const stopPayload = {
-          stopPx,
-          symbol,
-          side: stopSide,
-          ordType: 'Stop',
-          execInst: `Close,${stopTriggerPriceType}`
-        };
-
-        return await this.executeApiCall(this.httpClient.privatePostOrder, stopPayload);
-        """
-        symbol: str = str(data.get("symbol"))
-        price: typing.Optional[float] = data.get("price")
-        fraction: typing.Optional[float] = data.get("fraction")
-
-        if not symbol:
+        stored_data: typing.Optional[dict] = await self._data_store.get_ticker(self.account_id, raw_symbol)
+        if not stored_data:
             await self.emit_added_stop_to_position_event(message_id, None, "Symbol not found")
             return
 
-        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol)
+        symbol: BitmexSymbol = create_symbol(stored_data)
+
+        if not stop_price or stop_price < 0:
+            await self.emit_added_stop_to_position_event(message_id, None, "Stop price is required")
+            return
+
+        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol.symbol)
         if not position:
             await self.emit_added_stop_to_position_event(message_id, None, "Position not found")
             return
 
         try:
-            stop_order = await BitmexManager.add_stop_to_position(self._client, symbol, position, price, fraction)
+            stop_order = await BitmexManager.add_stop_to_position(
+                self._client, symbol, position, stop_price, trigger_price_type)
             await self.emit_added_stop_to_position_event(message_id, stop_order)
         except (BaseError, BadRequest) as e:
             error = e.args
-            await self.emit_added_stop_to_position_event(message_id, None, error=e)
+            await self.emit_added_stop_to_position_event(message_id, stop_order=None, error=e)
         except Exception as e:
-            await self.emit_added_stop_to_position_event(message_id, None, error="Unknown Error")
+            error = str(e) or "Unknown Error"
+            await self.emit_added_stop_to_position_event(message_id, stop_order=None, error=error)
 
     async def _on_add_tsl_to_position(self, message_id: str, data: typing.Dict):
-            pass
+        raw_symbol: str = str(data.get("symbol"))
+        tsl_percent: typing.Optional[float] = data.get("tslPercent")
+        trigger_price_type: StopTriggerType = data.get("stopTriggerPriceType", StopTriggerType.LAST_PRICE.value)
+
+        if not tsl_percent:
+            await self.emit_added_stop_to_position_event(message_id, None, "Trailing Stop Percent required")
+            return
+
+        if not raw_symbol:
+            await self.emit_added_stop_to_position_event(message_id, None, "Symbol required")
+            return
+
+        stored_data: typing.Optional[dict] = await self._data_store.get_ticker(self.account_id, raw_symbol)
+        if not stored_data:
+            await self.emit_added_stop_to_position_event(message_id, None, "Symbol not found")
+            return
+
+        symbol: BitmexSymbol = create_symbol(stored_data)
+
+        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol.symbol)
+        if not position:
+            await self.emit_added_stop_to_position_event(message_id, None, "Position not found")
+            return
+
+        try:
+            tsl_order = await BitmexManager.add_tsl_to_position(
+                self._client, symbol, position, tsl_percent, trigger_price_type)
+            await self.emit_added_tsl_to_position_event(message_id, tsl_order)
+        except (BaseError, BadRequest) as e:
+            error = e.args
+            await self.emit_added_tsl_to_position_event(message_id, tsl_order=None, error=e)
+        except Exception as e:
+            error = str(e) or "Unknown Error"
+            await self.emit_added_tsl_to_position_event(message_id, tsl_order=None, error=error)
 
 
 class ExchangeAccountManager:
