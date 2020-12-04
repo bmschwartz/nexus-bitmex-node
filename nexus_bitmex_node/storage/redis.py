@@ -72,6 +72,10 @@ class RedisDataStore(DataStore):
                 "available": available,
             })
             to_store.update({currency: margin_data})
+
+        if not to_store:
+            return
+
         await self._client.hmset_dict(f"bitmex:{client_key}:margins", to_store)
 
     async def get_margins(self, client_key: str):
