@@ -15,7 +15,8 @@ from aio_pika import (
     DeliveryMode,
 )
 
-from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener
+from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener, \
+    ExchangeEventListener
 from nexus_bitmex_node.exceptions import WrongOrderError
 from nexus_bitmex_node.queues.order.helpers import (
     handle_create_order_message,
@@ -37,7 +38,13 @@ from nexus_bitmex_node.queues.order.constants import (
 )
 
 
-class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, AccountEventListener):
+class OrderQueueManager(
+    QueueManager,
+    OrderEventEmitter,
+    OrderEventListener,
+    AccountEventListener,
+    ExchangeEventListener
+):
     _recv_order_channel: Channel
     _send_order_channel: Channel
 
@@ -61,6 +68,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         QueueManager.__init__(self, recv_connection, send_connection)
         OrderEventEmitter.__init__(self, event_bus)
         AccountEventListener.__init__(self, event_bus)
+        ExchangeEventListener.__init__(self, event_bus)
 
         self._create_order_consumer_tag = str(uuid4())
         self._update_order_consumer_tag = str(uuid4())
@@ -83,6 +91,7 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
         self.register_account_created_listener(self.listen_to_order_queues, loop)
         self.register_account_deleted_listener(self.stop_listening_to_order_queues, loop)
         self.register_order_created_listener(self._on_order_created, loop)
+        self.register_trades_updated_listener(self._on_trades_updated, loop)
 
     async def declare_exchanges(self):
         self._recv_bitmex_exchange = await self._recv_order_channel.declare_exchange(
@@ -116,6 +125,9 @@ class OrderQueueManager(QueueManager, OrderEventEmitter, OrderEventListener, Acc
 
     async def _on_order_canceled(self, order_id: str) -> None:
         # TODO: Do something now that an order has been canceled
+        pass
+
+    async def _on_trades_updated(self, account_id: str, orders_data: typing.List) -> None:
         pass
 
     async def listen_to_order_queues(self, account_id: str):

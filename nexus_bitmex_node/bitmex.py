@@ -1,5 +1,5 @@
 import typing
-import asyncio
+from datetime import datetime
 
 import ccxtpro
 
@@ -124,18 +124,33 @@ class BitmexManager(ExchangeEventEmitter):
 
         return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price, params=params)
 
-    async def watch_streams(self, client_id: str, client: ccxtpro.bitmex):
-        self._client_id = client_id
-        self._watching_streams = True
-
-        while self._watching_streams:
-            await self.update_margin_data(client.balance)
+    async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
+        while True:
+            print(f"checking my trades {datetime.now()}")
+            await client.watch_my_trades()
             await self.update_my_trades_data(client.myTrades)
+
+    async def watch_positions_stream(self, client_id: str, client: ccxtpro.bitmex):
+        while True:
+            print(f"checking positions {datetime.now()}")
+            await client.watch_positions()
             await self.update_positions_data(client.positions)
+
+    async def watch_tickers_stream(self, client_id: str, client: ccxtpro.bitmex):
+        while True:
+            await client.watch_instruments()
             await self.update_ticker_data(client.tickers)
-            await asyncio.sleep(2)
+
+    async def watch_balance_stream(self, client_id: str, client: ccxtpro.bitmex):
+        while True:
+            print(f"checking balance {datetime.now()}")
+            await client.watch_balance()
+            await self.update_margin_data(client.balance)
 
     async def update_ticker_data(self, data: typing.Dict):
+        if not data:
+            return
+
         tickers: typing.Dict = {}
         for ticker in data.values():
             info = ticker.get("info")
@@ -146,9 +161,15 @@ class BitmexManager(ExchangeEventEmitter):
         await self.emit_ticker_updated_event(self._client_id, tickers)
 
     async def update_margin_data(self, data: typing.Dict):
+        if not data:
+            return
+
         await self.emit_margins_updated_event(self._client_id, data)
 
     async def update_positions_data(self, data: typing.Dict):
+        if not data:
+            return
+
         await self.emit_positions_updated_event(self._client_id, list(data.values()))
 
     async def update_my_trades_data(self, data: typing.Dict):

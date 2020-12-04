@@ -96,16 +96,10 @@ class ExchangeAccount(
             raise InvalidApiKeysError(self.account_id)
 
     async def _connect_to_socket_stream(self):
-        await self._client.watch_balance()
-        await self._client.watch_my_trades()
-        await self._client.watch_positions()
-        await self._client.watch_instruments()
-
-        worker_thread = threading.Thread(
-            target=asyncio.run,
-            args=(bitmex_manager.watch_streams(self.account_id, self._client),)
-        )
-        worker_thread.start()
+        asyncio.ensure_future(bitmex_manager.watch_my_trades_stream(self.account_id, self._client))
+        asyncio.ensure_future(bitmex_manager.watch_positions_stream(self.account_id, self._client))
+        asyncio.ensure_future(bitmex_manager.watch_tickers_stream(self.account_id, self._client))
+        asyncio.ensure_future(bitmex_manager.watch_balance_stream(self.account_id, self._client))
 
     async def _init_tickers(self):
         data = await self._client.fetch_tickers()
