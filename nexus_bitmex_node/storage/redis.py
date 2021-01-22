@@ -57,7 +57,7 @@ class RedisDataStore(DataStore):
             existing = to_store.get(entry["currency"], {})
 
             balance = entry.get("availableMargin") or entry.get("marginBalance")
-            used = entry.get("maintMargin") or existing.get("used")
+            used = entry.get("maintMargin") if "maintMargin" in entry else existing.get("used")
 
             if None in (balance, used):
                 continue
@@ -87,8 +87,14 @@ class RedisDataStore(DataStore):
 
     async def get_margin(self, client_key: str, symbol: str):
         stored = await self._client.hmget(f"bitmex:{client_key}:margins", symbol, encoding="utf-8")
-        if not stored or not isinstance(stored, list):
+        if not isinstance(stored, list):
             return {}
+
+        filter(None, stored)
+
+        if not stored:
+            return {}
+
         return json.loads(stored[0])
 
     """ Positions """
