@@ -1,5 +1,4 @@
 import typing
-from datetime import datetime
 
 import ccxtpro
 
@@ -22,7 +21,6 @@ class BitmexManager(ExchangeEventEmitter):
     def __init__(self, bus: EventBus):
         ExchangeEventEmitter.__init__(self, bus)
 
-        self._client_id = ''
         self._symbol_data = {}
 
     def stop_streams(self):
@@ -30,7 +28,7 @@ class BitmexManager(ExchangeEventEmitter):
 
     @staticmethod
     async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
-        price = order.price or ticker.get("lastPrice")
+        price = order.price or ticker.get("last_price_protected")
         side = BitmexOrder.convert_order_side(order.side)
         order_type = BitmexOrder.convert_order_type(order.order_type)
         quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
@@ -126,28 +124,25 @@ class BitmexManager(ExchangeEventEmitter):
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
         while True:
-            print(f"checking my trades {datetime.now()}")
             await client.watch_my_trades()
-            await self.update_my_trades_data(client.myTrades)
+            await self.update_my_trades_data(client_id, client.myTrades)
 
     async def watch_positions_stream(self, client_id: str, client: ccxtpro.bitmex):
         while True:
-            print(f"checking positions {datetime.now()}")
             await client.watch_positions()
-            await self.update_positions_data(client.positions)
+            await self.update_positions_data(client_id, client.positions)
 
     async def watch_tickers_stream(self, client_id: str, client: ccxtpro.bitmex):
         while True:
             await client.watch_instruments()
-            await self.update_ticker_data(client.tickers)
+            await self.update_ticker_data(client_id, client.tickers)
 
     async def watch_balance_stream(self, client_id: str, client: ccxtpro.bitmex):
         while True:
-            print(f"checking balance {datetime.now()}")
             await client.watch_balance()
-            await self.update_margin_data(client.balance)
+            await self.update_margin_data(client_id, client.balance)
 
-    async def update_ticker_data(self, data: typing.Dict):
+    async def update_ticker_data(self, client_id: str, data: typing.Dict):
         if not data:
             return
 
@@ -158,25 +153,25 @@ class BitmexManager(ExchangeEventEmitter):
                 continue
             symbol = info.get("symbol")
             tickers[symbol] = info
-        await self.emit_ticker_updated_event(self._client_id, tickers)
+        await self.emit_ticker_updated_event(client_id, tickers)
 
-    async def update_margin_data(self, data: typing.Dict):
+    async def update_margin_data(self, client_id: str, data: typing.Dict):
         if not data:
             return
 
-        await self.emit_margins_updated_event(self._client_id, data)
+        await self.emit_margins_updated_event(client_id, data)
 
-    async def update_positions_data(self, data: typing.Dict):
+    async def update_positions_data(self, client_id: str, data: typing.Dict):
         if not data:
             return
 
-        await self.emit_positions_updated_event(self._client_id, list(data.values()))
+        await self.emit_positions_updated_event(client_id, list(data.values()))
 
-    async def update_my_trades_data(self, data: typing.Dict):
+    async def update_my_trades_data(self, client_id: str, data: typing.Dict):
         if not data:
             return
 
-        await self.emit_my_trades_updated_event(self._client_id, data)
+        await self.emit_my_trades_updated_event(client_id, data)
 
 
 bitmex_manager = BitmexManager(event_bus)

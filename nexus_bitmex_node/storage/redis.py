@@ -120,7 +120,7 @@ class RedisDataStore(DataStore):
 
     """ Trades """
     async def save_trades(self, client_key: str, data: typing.List):
-        new_trades: typing.List[BitmexTrade] = [create_trade(entry.get("info")) for entry in data]
+        new_trades: typing.List[BitmexTrade] = [create_trade(entry.get("info", entry)) for entry in data]
         to_store = await self.get_trades(client_key, as_json=True)
         for new_trade in new_trades:
             trade_id = new_trade.order_id
