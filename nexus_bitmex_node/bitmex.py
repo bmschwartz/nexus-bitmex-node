@@ -34,7 +34,12 @@ class BitmexManager(ExchangeEventEmitter):
         quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
         symbol = client.safe_symbol(order.symbol)
 
-        order_func = client.create_limit_order if price else client.create_market_order
+        order_func = {
+            OrderType.LIMIT: client.create_limit_order,
+            OrderType.STOP: client.create_limit_order,
+            OrderType.MARKET: client.create_market_order,
+        }[order.order_type]
+
         return await order_func(symbol, side, quantity, price)
 
     @staticmethod
