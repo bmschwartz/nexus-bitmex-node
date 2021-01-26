@@ -58,6 +58,6 @@ async def handle_delete_account_message(message: IncomingMessage, account_manage
         raise WrongAccountError(account_id)
 
     await account_manager.disconnect()
-    await event_emitter.emit_account_deleted_event(account_id)
+    await event_emitter.emit_account_deleted_event()
 
     return account_id

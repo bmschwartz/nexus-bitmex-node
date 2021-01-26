@@ -5,6 +5,7 @@ import asyncio
 from json import JSONDecodeError
 from uuid import uuid4
 
+import aiormq
 from aio_pika import (
     Queue,
     Connection,
@@ -25,6 +26,7 @@ from nexus_bitmex_node.queues.position.helpers import (
     handle_add_tsl_to_position_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
+from nexus_bitmex_node.queues.utils import cleanup_queue
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.position.constants import (
@@ -199,16 +201,16 @@ class PositionQueueManager(
             self._attached_consumers = False
 
         if getattr(self, "_close_position_queue", None):
-            await self._close_position_queue.unbind(self._recv_bitmex_exchange)
-            await self._close_position_queue.delete()
+            await cleanup_queue(self._close_position_queue, self._recv_bitmex_exchange)
+            setattr(self, "_close_position_queue", None)
 
         if getattr(self, "_position_add_stop_queue", None):
-            await self._position_add_stop_queue.unbind(self._recv_bitmex_exchange)
-            await self._position_add_stop_queue.delete()
+            await cleanup_queue(self._position_add_stop_queue, self._recv_bitmex_exchange)
+            setattr(self, "_position_add_stop_queue", None)
 
         if getattr(self, "_position_add_tsl_queue", None):
-            await self._position_add_tsl_queue.unbind(self._recv_bitmex_exchange)
-            await self._position_add_tsl_queue.delete()
+            await cleanup_queue(self._position_add_tsl_queue, self._recv_bitmex_exchange)
+            setattr(self, "_position_add_tsl_queue", None)
 
     def _set_position_routing_keys(self, account_id: str):
         self._close_position_routing_key = f"{BITMEX_POSITION_CLOSE_CMD_PREFIX}{account_id}"

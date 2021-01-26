@@ -38,7 +38,7 @@ from .helpers import (
     handle_update_account_message,
     handle_delete_account_message,
 )
-
+from ..utils import cleanup_queue
 
 _HEARTBEAT_INTERVAL = 5
 
@@ -147,15 +147,11 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
         self._heartbeat_task = asyncio.create_task(self._send_heartbeat(_HEARTBEAT_INTERVAL))
 
     async def _on_account_deleted(self) -> None:
-        await self._update_account_queue.unbind(
-            self._recv_bitmex_exchange, self._update_account_routing_key
-        )
         await self._update_account_queue.cancel(self._update_account_consumer_tag)
+        await cleanup_queue(self._update_account_queue, self._recv_bitmex_exchange, self._update_account_routing_key)
 
-        await self._delete_account_queue.unbind(
-            self._recv_bitmex_exchange, self._delete_account_routing_key
-        )
         await self._delete_account_queue.cancel(self._delete_account_consumer_tag)
+        await cleanup_queue(self._delete_account_queue, self._recv_bitmex_exchange, self._delete_account_routing_key)
 
         await self._listen_to_create_account_queue()
 

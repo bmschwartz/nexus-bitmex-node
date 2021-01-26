@@ -96,6 +96,8 @@ class ExchangeAccount(
             raise InvalidApiKeysError(self.account_id)
 
     async def _connect_to_socket_stream(self):
+        bitmex_manager.start_streams()
+
         asyncio.ensure_future(bitmex_manager.watch_my_trades_stream(self.account_id, self._client))
         asyncio.ensure_future(bitmex_manager.watch_positions_stream(self.account_id, self._client))
         asyncio.ensure_future(bitmex_manager.watch_tickers_stream(self.account_id, self._client))

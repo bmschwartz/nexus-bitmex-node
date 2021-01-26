@@ -20,8 +20,11 @@ class BitmexManager(ExchangeEventEmitter):
 
     def __init__(self, bus: EventBus):
         ExchangeEventEmitter.__init__(self, bus)
-
+        self._watching_streams = False
         self._symbol_data = {}
+
+    def start_streams(self):
+        self._watching_streams = True
 
     def stop_streams(self):
         self._watching_streams = False
@@ -128,24 +131,36 @@ class BitmexManager(ExchangeEventEmitter):
         return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price, params=params)
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
-        while True:
-            await client.watch_my_trades()
-            await self.update_my_trades_data(client_id, client.myTrades)
+        while self._watching_streams:
+            try:
+                await client.watch_my_trades()
+                await self.update_my_trades_data(client_id, client.myTrades)
+            except ccxtpro.errors.NetworkError:
+                pass
 
     async def watch_positions_stream(self, client_id: str, client: ccxtpro.bitmex):
-        while True:
-            await client.watch_positions()
-            await self.update_positions_data(client_id, client.positions)
+        while self._watching_streams:
+            try:
+                await client.watch_positions()
+                await self.update_positions_data(client_id, client.positions)
+            except ccxtpro.errors.NetworkError:
+                pass
 
     async def watch_tickers_stream(self, client_id: str, client: ccxtpro.bitmex):
-        while True:
-            await client.watch_instruments()
-            await self.update_ticker_data(client_id, client.tickers)
+        while self._watching_streams:
+            try:
+                await client.watch_instruments()
+                await self.update_ticker_data(client_id, client.tickers)
+            except ccxtpro.errors.NetworkError:
+                pass
 
     async def watch_balance_stream(self, client_id: str, client: ccxtpro.bitmex):
-        while True:
-            await client.watch_balance()
-            await self.update_margin_data(client_id, client.balance)
+        while self._watching_streams:
+            try:
+                await client.watch_balance()
+                await self.update_margin_data(client_id, client.balance)
+            except ccxtpro.errors.NetworkError:
+                pass
 
     async def update_ticker_data(self, client_id: str, data: typing.Dict):
         if not data:

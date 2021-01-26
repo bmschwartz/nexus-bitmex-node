@@ -23,6 +23,7 @@ from nexus_bitmex_node.queues.order.helpers import (
     handle_update_order_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
+from nexus_bitmex_node.queues.utils import cleanup_queue
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.order.constants import (
@@ -139,16 +140,16 @@ class OrderQueueManager(
 
     async def stop_listening_to_order_queues(self):
         if getattr(self, "_create_order_queue", None):
-            await self._create_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._create_order_queue.delete()
+            await cleanup_queue(self._create_order_queue, self._recv_bitmex_exchange)
+            setattr(self, "_create_order_queue", None)
 
         if getattr(self, "_update_order_queue", None):
-            await self._update_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._update_order_queue.delete()
+            await cleanup_queue(self._update_order_queue, self._recv_bitmex_exchange)
+            setattr(self, "_update_order_queue", None)
 
         if getattr(self, "_cancel_order_queue", None):
-            await self._cancel_order_queue.unbind(self._recv_bitmex_exchange)
-            await self._cancel_order_queue.delete()
+            await cleanup_queue(self._cancel_order_queue, self._recv_bitmex_exchange)
+            setattr(self, "_cancel_order_queue", None)
 
     def _set_order_routing_keys(self, account_id: str):
         self._create_order_routing_key = f"{BITMEX_CREATE_ORDER_CMD_PREFIX}{account_id}"
