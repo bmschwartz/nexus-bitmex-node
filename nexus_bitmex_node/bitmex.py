@@ -1,3 +1,4 @@
+import json
 import typing
 
 import ccxtpro
@@ -17,11 +18,13 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     _client: ccxtpro.bitmex
     _client_id: str
     _watching_streams: bool
+    _orders_cache: dict
 
     def __init__(self, bus: EventBus):
         ExchangeEventEmitter.__init__(self, bus)
         self._watching_streams = False
         self._symbol_data = {}
+        self._orders_cache = {}
 
     def start_streams(self):
         self._watching_streams = True
@@ -196,7 +199,17 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         if not data:
             return
 
-        [await self.emit_order_updated_event(order) for order in data]
+        # ccxt updates give us data for ALL orders even if they were not part of the update.
+        # this code will filter out the stuff that didn't change.
+        for order in data:
+            order_id = order["id"]
+            order_hash = hash(json.dumps(order))
+
+            if self._orders_cache.get(order_id, None) == order_hash:
+                continue
+
+            self._orders_cache[order["id"]] = order_hash
+            await self.emit_order_updated_event(order)
 
     async def update_positions_data(self, client_id: str, data: typing.Dict):
         if not data:
