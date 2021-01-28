@@ -5,14 +5,14 @@ import ccxtpro
 from nexus_bitmex_node.event_bus import (
     EventBus,
     event_bus,
-    ExchangeEventEmitter,
+    ExchangeEventEmitter, OrderEventEmitter,
 )
-from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType
+from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType, create_order
 from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.symbol import BitmexSymbol
 
 
-class BitmexManager(ExchangeEventEmitter):
+class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     _symbol_data: dict
     _client: ccxtpro.bitmex
     _client_id: str
@@ -36,6 +36,9 @@ class BitmexManager(ExchangeEventEmitter):
         order_type = BitmexOrder.convert_order_type(order.order_type)
         quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
         symbol = client.safe_symbol(order.symbol)
+        params = {
+            "clOrdID": order.client_order_id
+        }
 
         order_func: typing.Callable = {
             OrderType.LIMIT: client.create_limit_order,
@@ -43,7 +46,7 @@ class BitmexManager(ExchangeEventEmitter):
             OrderType.MARKET: client.create_market_order,
         }[order.order_type]
 
-        return await order_func(symbol, side, quantity, price)
+        return await order_func(symbol, side, quantity, price, params)
 
     @staticmethod
     async def close_position(
@@ -162,6 +165,14 @@ class BitmexManager(ExchangeEventEmitter):
             except ccxtpro.errors.NetworkError:
                 pass
 
+    async def watch_orders_stream(self, client_id: str, client: ccxtpro.bitmex):
+        while self._watching_streams:
+            try:
+                await client.watch_orders()
+                await self.update_orders_data(client_id, client.orders)
+            except ccxtpro.errors.NetworkError:
+                pass
+
     async def update_ticker_data(self, client_id: str, data: typing.Dict):
         if not data:
             return
@@ -180,6 +191,12 @@ class BitmexManager(ExchangeEventEmitter):
             return
 
         await self.emit_margins_updated_event(client_id, data)
+
+    async def update_orders_data(self, client_id: str, data: typing.Dict):
+        if not data:
+            return
+
+        [await self.emit_order_updated_event(order) for order in data]
 
     async def update_positions_data(self, client_id: str, data: typing.Dict):
         if not data:

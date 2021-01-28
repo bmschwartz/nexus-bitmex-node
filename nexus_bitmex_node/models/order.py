@@ -27,6 +27,7 @@ class StopTriggerType(enum.Enum):
 
 ORDER_SPEC = {
     "id": ("orderId", str),
+    "client_order_id": ("clOrderId", str),
     "symbol": "symbol",
     "side": ("side", OrderSide),
     "order_type": ("orderType", OrderType),
@@ -49,6 +50,7 @@ CONTRACT_VALUE_MULTIPLIERS = {
 @dataclass
 class BitmexOrder(BitmexBaseModel):
     id: int
+    client_order_id: str
     symbol: str
     side: OrderSide
     order_type: OrderType
@@ -107,6 +109,7 @@ class BitmexOrder(BitmexBaseModel):
     def to_json(self):
         return json.dumps({
             "id": self.id,
+            "client_order_id": self.client_order_id,
             "symbol": self.symbol,
             "side": self.side,
             "order_type": self.order_type,

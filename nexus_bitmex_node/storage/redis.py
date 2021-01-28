@@ -64,7 +64,7 @@ class RedisDataStore(DataStore):
 
             available = balance - used
 
-            balance, used, available = (round(val * XBt_TO_XBT_FACTOR, 8) for val in (balance, used, available,))
+            balance, used, available = (round(val * XBt_TO_XBT_FACTOR, 10) for val in (balance, used, available,))
 
             margin_data = json.dumps({
                 "balance": balance,
@@ -78,8 +78,11 @@ class RedisDataStore(DataStore):
 
         await self._client.hmset_dict(f"bitmex:{client_key}:margins", to_store)
 
-    async def get_margins(self, client_key: str):
+    async def get_margins(self, client_key: str, as_json=False):
         stored: typing.Dict = await self._client.hgetall(f"bitmex:{client_key}:margins", encoding="utf-8")
+        if as_json:
+            return stored
+
         margins: typing.Dict = {}
         for symbol, data in stored.items():
             margins[symbol] = json.loads(data)

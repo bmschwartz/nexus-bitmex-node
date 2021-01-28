@@ -92,6 +92,7 @@ class OrderQueueManager(
         self.register_account_created_listener(self.listen_to_order_queues, loop)
         self.register_account_deleted_listener(self.stop_listening_to_order_queues, loop)
         self.register_order_created_listener(self._on_order_created, loop)
+        self.register_order_updated_listener(self._on_order_updated, loop)
         self.register_trades_updated_listener(self._on_trades_updated, loop)
 
     async def declare_exchanges(self):
@@ -104,8 +105,21 @@ class OrderQueueManager(
         )
 
     async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
+        order = order["info"]
+        order_data = {
+            "orderId": order["orderID"],
+            "status": order["ordStatus"],
+            "clOrderId": order["clOrdID"],
+            "clOrderLinkId": order["clOrdLinkID"],
+            "orderQty": order["orderQty"],
+            "filledQty": order["orderQty"] - order["leavesQty"],
+            "avgPrice": order["avgPx"],
+            "stopPrice": order["stopPx"],
+            "pegOffsetValue": order["pegOffsetValue"],
+            "timestamp": order["timestamp"],
+        }
         response_payload: dict = {
-            "order": order,
+            "order": order_data,
             "success": error is None,
             "error": error,
         }
@@ -120,9 +134,32 @@ class OrderQueueManager(
             response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
         )
 
-    async def _on_order_updated(self, order_id: str) -> None:
-        # TODO: Do something now that an order has been updated
-        pass
+    async def _on_order_updated(self, order_update: typing.Dict) -> None:
+        order = order_update["info"]
+        order_data = {
+            "orderId": order["orderID"],
+            "status": order["ordStatus"],
+            "clOrderId": order["clOrdID"],
+            "clOrderLinkId": order["clOrdLinkID"],
+            "orderQty": order["orderQty"],
+            "filledQty": order["orderQty"] - order["leavesQty"],
+            "avgPrice": order["avgPx"],
+            "stopPrice": order["stopPx"],
+            "pegOffsetValue": order["pegOffsetValue"],
+            "timestamp": order["timestamp"],
+        }
+        response_payload: dict = {
+            "order": order_data,
+        }
+
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY
+        )
 
     async def _on_order_canceled(self, order_id: str) -> None:
         # TODO: Do something now that an order has been canceled

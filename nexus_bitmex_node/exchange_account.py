@@ -102,6 +102,7 @@ class ExchangeAccount(
         asyncio.ensure_future(bitmex_manager.watch_positions_stream(self.account_id, self._client))
         asyncio.ensure_future(bitmex_manager.watch_tickers_stream(self.account_id, self._client))
         asyncio.ensure_future(bitmex_manager.watch_balance_stream(self.account_id, self._client))
+        asyncio.ensure_future(bitmex_manager.watch_orders_stream(self.account_id, self._client))
 
     async def _init_tickers(self):
         data = await self._client.fetch_tickers()
