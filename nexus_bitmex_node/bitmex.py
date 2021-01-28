@@ -19,12 +19,14 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     _client_id: str
     _watching_streams: bool
     _orders_cache: dict
+    _positions_cache: dict
 
     def __init__(self, bus: EventBus):
         ExchangeEventEmitter.__init__(self, bus)
         self._watching_streams = False
         self._symbol_data = {}
         self._orders_cache = {}
+        self._positions_cache = {}
 
     def start_streams(self):
         self._watching_streams = True
@@ -215,7 +217,20 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         if not data:
             return
 
-        await self.emit_positions_updated_event(client_id, list(data.values()))
+        # ccxt updates give us data for ALL positions even if they were not part of the update.
+        # this code will filter out the stuff that didn't change.
+        updated_positions = []
+        for position in data.values():
+            position_symbol = position["symbol"]
+            position_hash = hash(json.dumps(position))
+
+            if self._positions_cache.get(position_symbol, None) == position_hash:
+                continue
+
+            updated_positions.append(position)
+            self._positions_cache[position_symbol] = position_hash
+
+        await self.emit_positions_updated_event(client_id, updated_positions)
 
     async def update_my_trades_data(self, client_id: str, data: typing.Dict):
         if not data:
