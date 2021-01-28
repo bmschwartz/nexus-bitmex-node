@@ -1,5 +1,4 @@
 import asyncio
-import threading
 import uuid
 import typing
 from datetime import datetime
@@ -91,6 +90,7 @@ class ExchangeAccount(
             await self.emit_margins_updated_event(self.account_id, margins)
             await self.emit_my_trades_updated_event(self.account_id, orders)
             await self.emit_positions_updated_event(self.account_id, positions)
+            [await self.emit_order_updated_event(order) for order in orders]
         except ClientAuthenticationError:
             print(f"invalid creds {self._api_key} {self._api_secret}")
             raise InvalidApiKeysError(self.account_id)
