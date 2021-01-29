@@ -103,7 +103,7 @@ class PositionQueueManager(
         loop = asyncio.get_event_loop()
         self.register_account_created_listener(self.listen_to_position_queues, loop)
         self.register_account_deleted_listener(self.stop_listening_to_position_queues, loop)
-        self.register_positions_updated_listener(self._on_positions_updated, loop, rate_limit=POSITION_UPDATE_INTERVAL)
+        self.register_positions_updated_listener(self._on_positions_updated, loop)
         self.register_position_closed_listener(self._on_position_closed, loop)
         self.register_added_stop_to_position_event(self._on_position_added_stop, loop)
         self.register_added_tsl_to_position_event(self._on_position_added_tsl, loop)
