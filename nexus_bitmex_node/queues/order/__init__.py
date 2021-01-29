@@ -106,6 +106,8 @@ class OrderQueueManager(
 
     async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
         order = order["info"]
+        if not order["clOrdID"]:
+            return
 
         order_qty = order["orderQty"]
         leaves_qty = order["leavesQty"]
@@ -142,10 +144,12 @@ class OrderQueueManager(
 
     async def _on_order_updated(self, order_update: typing.Dict) -> None:
         order = order_update["info"]
+        if not order["clOrdID"]:
+            return
 
         order_qty = order["orderQty"]
-        leaves_qty = order["leavesQty"]
-        filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
+        leaves_qty = order["leavesQty"] or 0
+        filled_qty = order_qty - leaves_qty if order_qty else None
 
         order_data = {
             "orderId": order["orderID"],
