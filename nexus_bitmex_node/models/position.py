@@ -19,6 +19,7 @@ POSITION_SPEC = {
     "mark_price": Coalesce("markPrice", default=None),
     "margin": Coalesce("posMargin", default=None),
     "maintenance_margin": Coalesce("maintMargin", default=None),
+    "average_entry_price": Coalesce("avgEntryPrice", default=None),
 }
 
 
@@ -35,6 +36,7 @@ class BitmexPosition(BitmexBaseModel):
     mark_price: float
     margin: float
     maintenance_margin: float
+    average_entry_price: float
 
     def to_json(self):
         return json.dumps({
@@ -48,7 +50,8 @@ class BitmexPosition(BitmexBaseModel):
             "current_quantity": self.current_quantity,
             "mark_price": self.mark_price,
             "margin": self.margin,
-            "maintenance_margin": self.maintenance_margin
+            "maintenance_margin": self.maintenance_margin,
+            "average_entry_price": self.average_entry_price,
         })
 
     @property
