@@ -139,7 +139,29 @@ class PositionQueueManager(
         )
 
     async def _on_position_closed(self, message_id: str, close_order: typing.Dict, error: Exception = None) -> None:
+        order = close_order["info"]
+        if not order["clOrdID"]:
+            return
+
+        order_qty = order["orderQty"]
+        leaves_qty = order["leavesQty"]
+        filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
+
+        order_data = {
+            "orderId": order["orderID"],
+            "status": order["ordStatus"],
+            "clOrderId": order["clOrdID"],
+            "clOrderLinkId": order["clOrdLinkID"],
+            "orderQty": order_qty,
+            "filledQty": filled_qty,
+            "price": order["price"],
+            "avgPrice": order["avgPx"],
+            "stopPrice": order["stopPx"],
+            "pegOffsetValue": order["pegOffsetValue"],
+            "timestamp": order["timestamp"],
+        }
         response_payload: dict = {
+            "order": order_data,
             "success": error is None,
             "error": error,
         }
