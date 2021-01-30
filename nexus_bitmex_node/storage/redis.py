@@ -76,6 +76,9 @@ class RedisDataStore(DataStore):
         if not to_store:
             return
 
+        for key, val in to_store.items():
+            if isinstance(val, dict):
+                to_store[key] = json.dumps(val)
         await self._client.hmset_dict(f"bitmex:{client_key}:margins", to_store)
 
     async def get_margins(self, client_key: str, as_json=False):
@@ -111,6 +114,9 @@ class RedisDataStore(DataStore):
         for symbol, position in to_store.items():
             to_store.update(({symbol: position.to_json()}))
 
+        for key, val in to_store.items():
+            if isinstance(val, dict):
+                to_store[key] = json.dumps(val)
         await self._client.hmset_dict(f"bitmex:{client_key}:positions", to_store)
 
     async def get_positions(self, client_key: str, as_json=False) -> typing.Dict[str, BitmexPosition]:
@@ -135,6 +141,10 @@ class RedisDataStore(DataStore):
             trade_id = new_trade.order_id
             existing: BitmexTrade = create_trade(json.loads(to_store.get(trade_id, new_trade.to_json())))
             to_store.update({trade_id: existing.update(new_trade).to_json()})
+
+        for key, val in to_store.items():
+            if isinstance(val, dict):
+                to_store[key] = json.dumps(val)
         await self._client.hmset_dict(f"bitmex:{client_key}:trades", to_store)
 
     async def get_trades(self, client_key: str, as_json=False):
@@ -161,6 +171,10 @@ class RedisDataStore(DataStore):
             to_store.update({symbol: existing.update(new_symbol)})
         for symbol, ticker in to_store.items():
             to_store.update(({symbol: ticker.to_json()}))
+
+        for key, val in to_store.items():
+            if isinstance(val, dict):
+                to_store[key] = json.dumps(val)
         await self._client.hmset_dict(f"bitmex:{client_key}:tickers", to_store)
 
     async def get_tickers(self, client_key: str, as_json=False):

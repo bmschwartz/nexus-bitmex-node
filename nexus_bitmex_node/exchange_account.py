@@ -140,7 +140,7 @@ class ExchangeAccount(
     async def _on_close_position(self, message_id: str, data: typing.Dict):
         symbol: str = str(data.get("symbol"))
         price: typing.Optional[float] = data.get("price")
-        fraction: typing.Optional[float] = data.get("fraction")
+        percent: typing.Optional[float] = data.get("percent")
 
         if not symbol:
             await self.emit_position_closed_event(message_id, None, "Symbol not found")
@@ -152,7 +152,7 @@ class ExchangeAccount(
             return
 
         try:
-            close_order = await BitmexManager.close_position(self._client, symbol, position, price, fraction)
+            close_order = await BitmexManager.close_position(self._client, symbol, position, price, percent)
             await self.emit_position_closed_event(message_id, close_order)
         except (BaseError, BadRequest) as e:
             error = e.args

@@ -59,15 +59,15 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         symbol: str,
         position: BitmexPosition,
         price: typing.Optional[float] = None,
-        fraction: typing.Optional[float] = None,
+        percent: typing.Optional[float] = None,
     ):
         symbol = client.safe_symbol(symbol)
         params: typing.Dict[str, typing.Any] = {"execInst": "Close"}
         order_quantity = None
 
-        if fraction:
+        if percent:
             min_max_func = max if position.current_quantity > 0 else min
-            order_quantity = -1 * min_max_func(1, round(fraction * position.current_quantity))
+            order_quantity = -1 * min_max_func(1, round(percent * position.current_quantity))
 
         side = BitmexOrder.convert_order_side(position.side)
 
