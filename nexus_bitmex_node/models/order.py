@@ -31,6 +31,7 @@ ORDER_SPEC = {
     "symbol": "symbol",
     "side": ("side", OrderSide),
     "order_type": ("orderType", OrderType),
+    "close_order": ("closeOrder", bool),
     "price": "price",
     "stop_price": "stopPrice",
     "percent": "percent",
@@ -54,6 +55,7 @@ class BitmexOrder(BitmexBaseModel):
     symbol: str
     side: OrderSide
     order_type: OrderType
+    close_order: bool
     percent: float
     leverage: float
     price: typing.Optional[float]
@@ -113,6 +115,7 @@ class BitmexOrder(BitmexBaseModel):
             "symbol": self.symbol,
             "side": self.side,
             "order_type": self.order_type,
+            "close_order": self.close_order,
             "percent": self.percent,
             "leverage": self.leverage,
             "price": self.price,

@@ -56,23 +56,22 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     @staticmethod
     async def close_position(
         client: ccxtpro.bitmex,
-        symbol: str,
+        order: BitmexOrder,
         position: BitmexPosition,
-        price: typing.Optional[float] = None,
-        percent: typing.Optional[float] = None,
     ):
-        symbol = client.safe_symbol(symbol)
-        params: typing.Dict[str, typing.Any] = {"execInst": "Close"}
-        order_quantity = None
+        symbol = client.safe_symbol(order.symbol)
+        params: typing.Dict[str, typing.Any] = {
+            "execInst": "Close",
+            "clOrdID": order.client_order_id,
+        }
 
-        if percent:
-            min_max_func = max if position.current_quantity > 0 else min
-            order_quantity = -1 * min_max_func(1, round(percent * position.current_quantity))
+        min_max_func = max if position.current_quantity > 0 else min
+        order_quantity = -1 * min_max_func(1, round(order.percent * position.current_quantity)) / 100
 
-        side = BitmexOrder.convert_order_side(position.side)
+        side = BitmexOrder.convert_order_side(order.side)
 
-        order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if price else OrderType.MARKET)
-        return await client.create_order(symbol, order_type, side, order_quantity, price, params=params)
+        order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if order.price else OrderType.MARKET)
+        return await client.create_order(symbol, order_type, side, order_quantity, order.price, params=params)
 
     @staticmethod
     async def add_stop_to_position(

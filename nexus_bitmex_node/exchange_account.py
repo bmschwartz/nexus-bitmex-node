@@ -138,21 +138,15 @@ class ExchangeAccount(
             await self.emit_order_created_event(message_id, order=None, error="Unknown Error")
 
     async def _on_close_position(self, message_id: str, data: typing.Dict):
-        symbol: str = str(data.get("symbol"))
-        price: typing.Optional[float] = data.get("price")
-        percent: typing.Optional[float] = data.get("percent")
+        order: BitmexOrder = create_order(data)
 
-        if not symbol:
-            await self.emit_position_closed_event(message_id, None, "Symbol not found")
-            return
-
-        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, symbol)
+        position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, order.symbol)
         if not position:
             await self.emit_position_closed_event(message_id, None, "Position not found")
             return
 
         try:
-            close_order = await BitmexManager.close_position(self._client, symbol, position, price, percent)
+            close_order = await BitmexManager.close_position(self._client, order, position)
             await self.emit_position_closed_event(message_id, close_order)
         except (BaseError, BadRequest) as e:
             error = e.args

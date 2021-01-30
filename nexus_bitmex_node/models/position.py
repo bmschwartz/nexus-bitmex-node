@@ -1,3 +1,4 @@
+import enum
 import json
 
 import glom
@@ -6,6 +7,12 @@ from glom import Coalesce
 
 from nexus_bitmex_node.models.base import BitmexBaseModel
 from nexus_bitmex_node.models.order import OrderSide
+
+
+class PositionSide(enum.Enum):
+    LONG = "Long"
+    SHORT = "Short"
+
 
 POSITION_SPEC = {
     "symbol": "symbol",
