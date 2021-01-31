@@ -139,6 +139,9 @@ class PositionQueueManager(
         )
 
     async def _on_position_closed(self, message_id: str, close_order: typing.Dict, error: Exception = None) -> None:
+        if not close_order:
+            return
+
         order = close_order["info"]
         if not order["clOrdID"]:
             return
@@ -160,8 +163,9 @@ class PositionQueueManager(
             "pegOffsetValue": order["pegOffsetValue"],
             "timestamp": order["timestamp"],
         }
+
         response_payload: dict = {
-            "order": order_data,
+            "order": order,
             "success": error is None,
             "error": error,
         }
