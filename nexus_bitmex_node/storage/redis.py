@@ -35,6 +35,10 @@ class RedisDataStore(DataStore):
     async def save_order(self, client_key: str, order: BitmexOrder):
         existing: BitmexOrder = await self._client.hmget(f"bitmex:{client_key}:orders", order.id, encoding="utf-8")
         existing.update(order)
+
+        if not existing:
+            return
+
         await self._client.hmset_dict(f"bitmex:{client_key}:orders", order.id, existing.to_json())
 
     async def get_orders(self, client_key: str) -> typing.Dict[str, BitmexOrder]:
@@ -114,6 +118,9 @@ class RedisDataStore(DataStore):
         for symbol, position in to_store.items():
             to_store.update(({symbol: position.to_json()}))
 
+        if not to_store:
+            return
+
         for key, val in to_store.items():
             if isinstance(val, dict):
                 to_store[key] = json.dumps(val)
@@ -141,6 +148,9 @@ class RedisDataStore(DataStore):
             trade_id = new_trade.order_id
             existing: BitmexTrade = create_trade(json.loads(to_store.get(trade_id, new_trade.to_json())))
             to_store.update({trade_id: existing.update(new_trade).to_json()})
+
+        if not to_store:
+            return
 
         for key, val in to_store.items():
             if isinstance(val, dict):
@@ -171,6 +181,9 @@ class RedisDataStore(DataStore):
             to_store.update({symbol: existing.update(new_symbol)})
         for symbol, ticker in to_store.items():
             to_store.update(({symbol: ticker.to_json()}))
+
+        if not to_store:
+            return
 
         for key, val in to_store.items():
             if isinstance(val, dict):
