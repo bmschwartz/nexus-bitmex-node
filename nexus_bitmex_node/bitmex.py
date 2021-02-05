@@ -8,7 +8,7 @@ from nexus_bitmex_node.event_bus import (
     event_bus,
     ExchangeEventEmitter, OrderEventEmitter,
 )
-from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType, create_order
+from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.symbol import BitmexSymbol
 
@@ -33,25 +33,6 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     def stop_streams(self):
         self._watching_streams = False
-
-    @staticmethod
-    async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
-        price = order.price or ticker.get("last_price_protected")
-        side = BitmexOrder.convert_order_side(order.side)
-        order_type = BitmexOrder.convert_order_type(order.order_type)
-        quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage, ticker)
-        symbol = client.safe_symbol(order.symbol)
-        params = {
-            "clOrdID": order.client_order_id
-        }
-
-        order_func: typing.Callable = {
-            OrderType.LIMIT: client.create_limit_order,
-            OrderType.STOP: client.create_limit_order,
-            OrderType.MARKET: client.create_market_order,
-        }[order.order_type]
-
-        return await order_func(symbol, side, quantity, price, params)
 
     @staticmethod
     async def close_position(

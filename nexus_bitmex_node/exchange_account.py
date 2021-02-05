@@ -129,7 +129,7 @@ class ExchangeAccount(
         margin_balance = margin.get("available", 0)
 
         try:
-            order_data = await BitmexManager.place_order(self._client, order, ticker, margin_balance)
+            order_data = await order.place_order(self._client, ticker, margin_balance)
             await self.emit_order_created_event(message_id, order=order_data)
         except (BaseError, BadRequest) as e:
             error = e.args

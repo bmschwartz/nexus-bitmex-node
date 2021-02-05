@@ -1,9 +1,12 @@
 import enum
 import json
 import typing
+from uuid import uuid4
 
+import ccxtpro
 import glom
 from attr import dataclass
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from nexus_bitmex_node.models.base import BitmexBaseModel
 
@@ -123,6 +126,28 @@ class BitmexOrder(BitmexBaseModel):
             "stop_trigger_type": self.stop_trigger_type,
             "trailing_stop_percent": self.trailing_stop_percent,
         })
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=16),
+    )
+    async def place_order(self, client: ccxtpro.bitmex, ticker, margin):
+        price = self.price or ticker.get("last_price_protected")
+        side = BitmexOrder.convert_order_side(self.side)
+        order_type = BitmexOrder.convert_order_type(self.order_type)
+        quantity = await BitmexOrder.calculate_order_quantity(margin, self.percent, price, self.leverage, ticker)
+        symbol = client.safe_symbol(self.symbol)
+        params = {
+            "clOrdID": f"{self.client_order_id}_{str(uuid4())[:4]}"
+        }
+
+        order_func: typing.Callable = {
+            OrderType.LIMIT: client.create_limit_order,
+            OrderType.STOP: client.create_limit_order,
+            OrderType.MARKET: client.create_market_order,
+        }[self.order_type]
+
+        return await order_func(symbol, side, quantity, price, params)
 
 
 def create_order(order_data: dict) -> BitmexOrder:
