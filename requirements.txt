@@ -1,3 +1,5 @@
+--extra-index-url https://api.packagr.app/W3AiNlS5k/
+
 aio-pika==6.7.1
 aiodns==1.1.1
 aiohttp==3.7.2
@@ -6,8 +8,8 @@ aiormq==3.3.1
 async-timeout==3.0.1
 attrs==20.2.0
 boltons==20.2.1
-git+ssh://git@github.com/TradeNexus/ccxt.git@master#egg=ccxt&subdirectory=python
-git+ssh://git@github.com/TradeNexus/ccxt.pro.git@master#egg=ccxtpro&subdirectory=python
+ccxt==1.41.60.1
+ccxtpro==0.5.53.1
 certifi==2020.6.20
 cffi==1.14.3
 chardet==3.0.4
@@ -32,6 +34,7 @@ requests==2.24.0
 six==1.15.0
 starlette==0.13.8
 stringcase==1.2.0
+tenacity==6.3.1
 typed-ast==1.4.1
 typing-extensions==3.7.4.3
 typing-inspect==0.6.0
