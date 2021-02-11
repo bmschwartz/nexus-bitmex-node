@@ -14,7 +14,7 @@ from nexus_bitmex_node.event_bus import (
     EventBus, AccountEventEmitter, ExchangeEventEmitter, PositionEventEmitter, PositionEventListener,
 )
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
-from nexus_bitmex_node.models.order import BitmexOrder, create_order, StopTriggerType
+from nexus_bitmex_node.models.order import BitmexOrder, create_order, StopTriggerType, OrderSide
 from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.symbol import BitmexSymbol, create_symbol
 from nexus_bitmex_node.settings import ServerMode
@@ -116,8 +116,20 @@ class ExchangeAccount(
         await self.emit_ticker_updated_event(self.account_id, tickers)
 
     async def _on_create_order(self, message_id: str, order_data: dict):
-        order: BitmexOrder = create_order(order_data)
-        ticker = await self._data_store.get_ticker(self.account_id, order.symbol)
+        orders = order_data["orders"]
+
+        main_order: BitmexOrder = create_order(orders[0])
+        stop_order: typing.Optional[BitmexOrder] = None
+        tsl_order: typing.Optional[BitmexOrder] = None
+
+        for order in orders:
+            cl_order_id = order.get("clOrderId")
+            if "stop" in cl_order_id:
+                stop_order = create_order(order)
+            elif "tsl" in cl_order_id:
+                tsl_order = create_order(order)
+
+        ticker = await self._data_store.get_ticker(self.account_id, main_order.symbol)
 
         # currency = ticker.get("underlying")
         # self._client.safe_market(order.symbol)
@@ -128,14 +140,19 @@ class ExchangeAccount(
         margin = await self._data_store.get_margin(self.account_id, "XBt")
         margin_balance = margin.get("available", 0)
 
+        order_results = {}
         try:
-            order_data = await order.place_order(self._client, ticker, margin_balance)
-            await self.emit_order_created_event(message_id, order=order_data)
+            main_order_result = await BitmexManager.place_order(self._client, main_order, ticker, margin_balance)
+            order_results["main"] = main_order_result
+            if stop_order:
+                stop_order_result = await BitmexManager.place_stop_order(self._client, stop_order, main_order_result["amount"], ticker)
+                order_results["stop"] = stop_order_result
+            await self.emit_order_created_event(message_id, orders=order_results)
         except (BaseError, BadRequest) as e:
             error = e.args
-            await self.emit_order_created_event(message_id, order=None, error=e)
+            await self.emit_order_created_event(message_id, orders=None, error=e)
         except Exception as e:
-            await self.emit_order_created_event(message_id, order=None, error="Unknown Error")
+            await self.emit_order_created_event(message_id, orders=None, error="Unknown Error")
 
     async def _on_close_position(self, message_id: str, data: typing.Dict):
         order: BitmexOrder = create_order(data)

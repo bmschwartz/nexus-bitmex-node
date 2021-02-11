@@ -104,30 +104,42 @@ class OrderQueueManager(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-    async def _on_order_created(self, message_id: str, order: typing.Dict, error: Exception = None) -> None:
-        order = order["info"]
-        if not order["clOrdID"]:
-            return
+    async def _on_order_created(self, message_id: str, orders: typing.Dict, error: Exception = None) -> None:
+        def create_order_data(order_data):
+            order = order_data["info"]
+            if not order["clOrdID"]:
+                return {}
+            order_qty = order["orderQty"]
+            leaves_qty = order["leavesQty"]
+            filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
+            return {
+                "orderId": order["orderID"],
+                "status": order["ordStatus"],
+                "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
+                "clOrderLinkId": order["clOrdLinkID"],
+                "orderQty": order_qty,
+                "filledQty": filled_qty,
+                "price": order["price"],
+                "avgPrice": order["avgPx"],
+                "stopPrice": order["stopPx"],
+                "pegOffsetValue": order["pegOffsetValue"],
+                "timestamp": order["timestamp"],
+            }
 
-        order_qty = order["orderQty"]
-        leaves_qty = order["leavesQty"]
-        filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
-
-        order_data = {
-            "orderId": order["orderID"],
-            "status": order["ordStatus"],
-            "clOrderId": order["clOrdID"],
-            "clOrderLinkId": order["clOrdLinkID"],
-            "orderQty": order_qty,
-            "filledQty": filled_qty,
-            "price": order["price"],
-            "avgPrice": order["avgPx"],
-            "stopPrice": order["stopPx"],
-            "pegOffsetValue": order["pegOffsetValue"],
-            "timestamp": order["timestamp"],
+        orders_data = {
+            "main": create_order_data(orders["main"]),
         }
+
+        stop_order = orders.get("stop", {})
+        tsl_order = orders.get("tsl", {})
+
+        if stop_order:
+            orders_data["stop"] = create_order_data(stop_order)
+        if tsl_order:
+            orders_data["tsl"] = create_order_data(tsl_order)
+
         response_payload: dict = {
-            "order": order_data,
+            "orders": orders_data,
             "success": error is None,
             "error": error,
         }
@@ -154,7 +166,7 @@ class OrderQueueManager(
         order_data = {
             "orderId": order["orderID"],
             "status": order["ordStatus"],
-            "clOrderId": order["clOrdID"],
+            "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
             "clOrderLinkId": order["clOrdLinkID"],
             "orderQty": order_qty,
             "filledQty": filled_qty,

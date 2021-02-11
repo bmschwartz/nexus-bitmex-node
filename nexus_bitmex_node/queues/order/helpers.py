@@ -12,9 +12,9 @@ async def handle_create_order_message(message: IncomingMessage) -> bool:
     except JSONDecodeError as err:
         raise err
 
-    order_id = data.get("orderId")
-    if not order_id:
-        raise WrongOrderError(order_id)
+    orders = data.get("orders", [])
+    if not orders or not orders[0].get("id"):
+        raise WrongOrderError("empty")
 
     return data
 

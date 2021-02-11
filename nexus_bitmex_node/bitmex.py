@@ -1,7 +1,9 @@
 import json
 import typing
+from uuid import uuid4
 
 import ccxtpro
+from tenacity import retry, wait_exponential, stop_after_attempt
 
 from nexus_bitmex_node.event_bus import (
     EventBus,
@@ -10,7 +12,7 @@ from nexus_bitmex_node.event_bus import (
 )
 from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
-from nexus_bitmex_node.models.symbol import BitmexSymbol
+from nexus_bitmex_node.models.symbol import BitmexSymbol, create_symbol
 
 
 class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
@@ -35,6 +37,70 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         self._watching_streams = False
 
     @staticmethod
+    async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
+        @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=3, max=12))
+        async def execute_order():
+            params = {
+                "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}"
+            }
+            return await order_func(symbol, side, quantity, price, params)
+
+        price = order.price or ticker.get("last_price_protected")
+        side = BitmexOrder.convert_order_side(order.side)
+        order_type = BitmexOrder.convert_order_type(order.order_type)
+        quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage,
+                                                              ticker)
+        symbol = client.safe_symbol(order.symbol)
+
+        order_func: typing.Callable = {
+            OrderType.LIMIT: client.create_limit_order,
+            OrderType.STOP: client.create_limit_order,
+            OrderType.MARKET: client.create_market_order,
+        }[order.order_type]
+
+        order_result = await execute_order()
+
+        return order_result
+
+    @staticmethod
+    async def place_stop_order(client: ccxtpro.bitmex, stop_order: BitmexOrder, quantity, ticker):
+        @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=3, max=12))
+        async def execute_stop_order():
+            try:
+                params: typing.Dict[str, typing.Any] = {
+                    "stopPx": stop_price,
+                    "clOrdID": f"{stop_order.client_order_id}_{str(uuid4())[:4]}",
+                    "execInst": f"Close,{trigger_type}" if stop_order.close_order else f"{trigger_type}",
+                }
+                return await client.create_order(market_symbol, order_type, side, amount=quantity, price=stop_price,
+                                                 params=params)
+            except Exception as e:
+                print(e)
+                return None
+
+        trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(
+            StopTriggerType(stop_order.stop_trigger_type)
+        )
+        if not trigger_type:
+            raise ValueError("Invalid Stop Trigger Type")
+
+        if not stop_order.stop_price:
+            raise ValueError("Stop Price Missing")
+
+        symbol: BitmexSymbol = create_symbol(ticker)
+
+        # Rounds price off to the correct tick_size and digits
+        stop_price = float(round(stop_order.stop_price, symbol.fractional_digits))
+        stop_price = stop_price - (stop_price % symbol.tick_size)
+
+        side = BitmexOrder.convert_order_side(stop_order.side)
+
+        order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
+        market_symbol = client.safe_symbol(symbol.symbol)
+
+        return await execute_stop_order()
+
+    @staticmethod
     async def close_position(
         client: ccxtpro.bitmex,
         order: BitmexOrder,
@@ -43,7 +109,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         symbol = client.safe_symbol(order.symbol)
         params: typing.Dict[str, typing.Any] = {
             "execInst": "Close",
-            "clOrdID": order.client_order_id,
+            "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}",
         }
 
         min_max_func = max if position.current_quantity > 0 else min
