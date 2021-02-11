@@ -70,7 +70,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
                 params: typing.Dict[str, typing.Any] = {
                     "stopPx": stop_price,
                     "clOrdID": f"{stop_order.client_order_id}_{str(uuid4())[:4]}",
-                    "execInst": f"Close,{trigger_type}" if stop_order.close_order else f"{trigger_type}",
+                    "execInst": f"ReduceOnly,{trigger_type}",
                 }
                 return await client.create_order(market_symbol, order_type, side, amount=quantity, price=stop_price,
                                                  params=params)
@@ -99,6 +99,63 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         market_symbol = client.safe_symbol(symbol.symbol)
 
         return await execute_stop_order()
+
+    @staticmethod
+    async def place_tsl_order(client: ccxtpro.bitmex, tsl_order: BitmexOrder, quantity, ticker):
+        @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=3, max=12))
+        async def execute_tsl_order():
+            try:
+                params: typing.Dict[str, typing.Any] = {
+                    "stopPx": stop_price,
+                    "pegOffsetValue": peg_offset_value,
+                    "pegPriceType": "TrailingStopPeg",
+                    "clOrdID": f"{tsl_order.client_order_id}_{str(uuid4())[:4]}",
+                    "execInst": f"ReduceOnly,{trigger_type}",
+                }
+                return await client.create_order(market_symbol, order_type,
+                                                 BitmexOrder.convert_order_side(tsl_order.side),
+                                                 amount=quantity, price=stop_price, params=params)
+            except Exception as e:
+                print(e)
+                return None
+
+        trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(
+            StopTriggerType(tsl_order.stop_trigger_type)
+        )
+        if not trigger_type:
+            raise ValueError("Invalid Stop Trigger Type")
+
+        if not tsl_order.trailing_stop_percent:
+            raise ValueError("Trailing Stop Percent Missing")
+
+        symbol: BitmexSymbol = create_symbol(ticker)
+
+        main_order_side = OrderSide.BUY if tsl_order.side == OrderSide.SELL else OrderSide.SELL
+
+        trailing_offset_factor = 1 - (tsl_order.trailing_stop_percent / 100) if main_order_side == OrderSide.BUY else \
+            1 + (tsl_order.trailing_stop_percent / 100)
+
+        if tsl_order.price:
+            huge_starting_offset = 10000
+            peg_offset = huge_starting_offset * (-1 if main_order_side == OrderSide.BUY else 1)
+            stop_price = tsl_order.price * trailing_offset_factor
+        else:
+            use_last_price = tsl_order.stop_trigger_type == StopTriggerType.LAST_PRICE
+            current_price = symbol.last_price_protected if use_last_price else symbol.mark_price
+            peg_offset = -1 * current_price * (1 - trailing_offset_factor)
+            stop_price = current_price * trailing_offset_factor
+
+        # Rounds price off to the correct tick_size and digits
+        stop_price = float(round(stop_price, symbol.fractional_digits))
+        stop_price = stop_price - (stop_price % symbol.tick_size)
+
+        peg_offset_value = float(round(peg_offset, symbol.fractional_digits))
+        peg_offset_value = peg_offset_value - (peg_offset_value % symbol.tick_size)
+
+        order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
+        market_symbol = client.safe_symbol(symbol.symbol)
+
+        return await execute_tsl_order()
 
     @staticmethod
     async def close_position(

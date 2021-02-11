@@ -145,8 +145,13 @@ class ExchangeAccount(
             main_order_result = await BitmexManager.place_order(self._client, main_order, ticker, margin_balance)
             order_results["main"] = main_order_result
             if stop_order:
-                stop_order_result = await BitmexManager.place_stop_order(self._client, stop_order, main_order_result["amount"], ticker)
+                stop_order_result = await BitmexManager.place_stop_order(self._client, stop_order,
+                                                                         main_order_result["amount"], ticker)
                 order_results["stop"] = stop_order_result
+            if tsl_order:
+                tsl_order_result = await BitmexManager.place_tsl_order(self._client, tsl_order,
+                                                                       main_order_result["amount"], ticker)
+                order_results["tsl"] = tsl_order_result
             await self.emit_order_created_event(message_id, orders=order_results)
         except (BaseError, BadRequest) as e:
             error = e.args
