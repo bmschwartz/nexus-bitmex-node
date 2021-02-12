@@ -48,8 +48,8 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         price = order.price or ticker.get("last_price_protected")
         side = BitmexOrder.convert_order_side(order.side)
         order_type = BitmexOrder.convert_order_type(order.order_type)
-        quantity = await BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage,
-                                                              ticker)
+        quantity = BitmexOrder.calculate_order_quantity(margin, order.percent, price, order.leverage,
+                                                        ticker)
         symbol = client.safe_symbol(order.symbol)
 
         order_func: typing.Callable = {

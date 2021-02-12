@@ -1,5 +1,6 @@
 import enum
 import json
+import math
 import typing
 import glom
 from attr import dataclass
@@ -44,7 +45,20 @@ mXBT_TO_XBT_FACTOR = 1 / 1000
 XBt_TO_XBT_FACTOR = 1 / 100000000
 
 CONTRACT_VALUE_MULTIPLIERS = {
-    "ETHUSD": 0.001 * mXBT_TO_XBT_FACTOR
+    "ADAUSDTH21": 0.01,
+    "BCHUSD": 0.001 * mXBT_TO_XBT_FACTOR,
+    "BNBUSDTH21": 0.0001,
+    "DOGEUSDT": 0.001,
+    "DOTUSDTH21": 0.0001,
+    "EOSUSDTH21": 0.0001,
+    "ETHUSD": 0.001 * mXBT_TO_XBT_FACTOR,
+    "ETHUSDH21": 0.001 * mXBT_TO_XBT_FACTOR,
+    "LINKUSDT": 0.0001,
+    "LINKUSDTH21": 0.0001,
+    "LTCUSD": 0.002 * mXBT_TO_XBT_FACTOR,
+    "XRPUSD": 0.0002,
+    "XTZUSDTH21": 0.0001,
+    "YFIUSDTH21": 0.0001 * mXBT_TO_XBT_FACTOR,
 }
 
 
@@ -90,7 +104,7 @@ class BitmexOrder(BitmexBaseModel):
         return None
 
     @staticmethod
-    async def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float, ticker: typing.Dict):
+    def calculate_order_quantity(margin: float, percent: float, price: float, leverage: float, ticker: typing.Dict):
         if percent > 0:
             percent /= 100.0
         else:
@@ -98,7 +112,7 @@ class BitmexOrder(BitmexBaseModel):
 
         margin_to_spend = round(percent * margin, 8)
         symbol_value = BitmexOrder.get_symbol_value_in_xbt(ticker, price)
-        return round(margin_to_spend * leverage / symbol_value)
+        return math.floor(margin_to_spend * leverage / symbol_value)
 
     @staticmethod
     def get_symbol_value_in_xbt(ticker, price: float) -> float:
