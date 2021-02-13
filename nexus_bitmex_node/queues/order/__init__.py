@@ -163,21 +163,21 @@ class OrderQueueManager(
         if not order["clOrdID"]:
             return
 
-        order_qty = order["orderQty"]
-        leaves_qty = order["leavesQty"] or 0
+        order_qty = order.get("orderQty")
+        leaves_qty = order.get("leavesQty")
         filled_qty = order_qty - leaves_qty if order_qty else None
 
         order_data = {
             "orderId": order["orderID"],
             "status": order["ordStatus"],
             "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
-            "clOrderLinkId": order["clOrdLinkID"],
+            "clOrderLinkId": order.get("clOrdLinkID"),
             "orderQty": order_qty,
             "filledQty": filled_qty,
-            "price": order["price"],
-            "avgPrice": order["avgPx"],
-            "stopPrice": order["stopPx"],
-            "pegOffsetValue": order["pegOffsetValue"],
+            "price": order.get("price"),
+            "avgPrice": order.get("avgPx"),
+            "stopPrice": order.get("stopPx"),
+            "pegOffsetValue": order.get("pegOffsetValue"),
             "timestamp": order["timestamp"],
         }
         response_payload: dict = {

@@ -5,7 +5,8 @@ from uuid import uuid4
 import ccxtpro
 from ccxt import AuthenticationError, PermissionDenied, ArgumentsRequired, InsufficientFunds, InvalidOrder, \
     OrderNotFound
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_unless_exception_type
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_unless_exception_type, retry_if_not_result, \
+    stop_any, retry_all
 
 from nexus_bitmex_node.event_bus import (
     EventBus,
@@ -15,7 +16,6 @@ from nexus_bitmex_node.event_bus import (
 from nexus_bitmex_node.models.order import BitmexOrder, OrderSide, OrderType, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.symbol import BitmexSymbol, create_symbol
-
 
 FATAL_ORDER_EXCEPTIONS = (
     AuthenticationError,
@@ -50,9 +50,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
-        @retry(reraise=True, stop=stop_after_attempt(3),
-               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
-               wait=wait_exponential(multiplier=1, min=3, max=12))
+        @retry(reraise=True,
+               stop=stop_after_attempt(3),
+               retry=retry_all(retry_if_not_result(_is_successful_order),
+                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
+               wait=wait_exponential(min=5, max=15))
         async def execute_order():
             params = {
                 "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}"
@@ -76,9 +78,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_stop_order(client: ccxtpro.bitmex, stop_order: BitmexOrder, quantity, ticker):
-        @retry(reraise=True, stop=stop_after_attempt(3),
-               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
-               wait=wait_exponential(multiplier=1, min=3, max=12))
+        @retry(reraise=True,
+               stop=stop_after_attempt(3),
+               retry=retry_all(retry_if_not_result(_is_successful_order),
+                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
+               wait=wait_exponential(min=5, max=15))
         async def execute_stop_order():
             params: typing.Dict[str, typing.Any] = {
                 "stopPx": stop_price,
@@ -112,9 +116,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_tsl_order(client: ccxtpro.bitmex, tsl_order: BitmexOrder, quantity, ticker):
-        @retry(reraise=True, stop=stop_after_attempt(3),
-               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
-               wait=wait_exponential(multiplier=1, min=3, max=12))
+        @retry(reraise=True,
+               stop=stop_after_attempt(3),
+               retry=retry_all(retry_if_not_result(_is_successful_order),
+                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
+               wait=wait_exponential(min=5, max=15))
         async def execute_tsl_order():
             params: typing.Dict[str, typing.Any] = {
                 "stopPx": stop_price,
@@ -247,7 +253,8 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             "execInst": f"Close,{trigger_type}",
         }
 
-        return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price, params=params)
+        return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price,
+                                         params=params)
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
         while self._watching_streams:
@@ -348,6 +355,10 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             return
 
         await self.emit_my_trades_updated_event(client_id, data)
+
+
+def _is_successful_order(retry_state):
+    return retry_state.get("status", None) is not None
 
 
 bitmex_manager = BitmexManager(event_bus)
