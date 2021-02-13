@@ -256,6 +256,10 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price,
                                          params=params)
 
+    @staticmethod
+    async def cancel_order(client: ccxtpro.bitmex, order_id: str):
+        return await client.cancel_order(order_id)
+
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
         while self._watching_streams:
             try:

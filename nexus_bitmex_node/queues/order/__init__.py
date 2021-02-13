@@ -94,6 +94,7 @@ class OrderQueueManager(
         self.register_account_deleted_listener(self.stop_listening_to_order_queues, loop)
         self.register_order_created_listener(self._on_order_created, loop)
         self.register_order_updated_listener(self._on_order_updated, loop)
+        self.register_order_canceled_listener(self._on_order_canceled, loop)
         self.register_trades_updated_listener(self._on_trades_updated, loop)
 
     async def declare_exchanges(self):
@@ -115,7 +116,7 @@ class OrderQueueManager(
             leaves_qty = order["leavesQty"]
             filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
             return {
-                "orderId": order["orderID"],
+                "remoteOrderId": order["orderID"],
                 "status": order["ordStatus"],
                 "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
                 "clOrderLinkId": order["clOrdLinkID"],
@@ -169,7 +170,7 @@ class OrderQueueManager(
         filled_qty = order_qty - leaves_qty if order_qty else None
 
         order_data = {
-            "orderId": order["orderID"],
+            "remoteOrderId": order["orderID"],
             "status": order["ordStatus"],
             "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
             "clOrderLinkId": order.get("clOrdLinkID"),
@@ -194,9 +195,43 @@ class OrderQueueManager(
             response, routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY
         )
 
-    async def _on_order_canceled(self, order_id: str) -> None:
-        # TODO: Do something now that an order has been canceled
-        pass
+    async def _on_order_canceled(self, message_id: str, order: dict, error: str = None) -> None:
+        def create_order_data(order_data):
+            order_info = order_data["info"]
+            if not order_info["clOrdID"]:
+                return {}
+            order_qty = order_info["orderQty"]
+            leaves_qty = order_info["leavesQty"]
+            filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
+            return {
+                "remoteOrderId": order_info["orderID"],
+                "status": order_info["ordStatus"],
+                "clOrderId": '_'.join(order_info["clOrdID"].split("_")[:2]),
+                "clOrderLinkId": order_info["clOrdLinkID"],
+                "orderQty": order_qty,
+                "filledQty": filled_qty,
+                "price": order_info["price"],
+                "avgPrice": order_info["avgPx"],
+                "stopPrice": order_info["stopPx"],
+                "pegOffsetValue": order_info["pegOffsetValue"],
+                "timestamp": order_info["timestamp"],
+            }
+
+        response_payload: dict = {
+            "order": create_order_data(order) if order else None,
+            "success": not error,
+            "errors": error,
+        }
+
+        response = Message(
+            bytes(json.dumps(response_payload), "utf-8"),
+            delivery_mode=DeliveryMode.PERSISTENT,
+            correlation_id=message_id,
+            content_type="application/json",
+        )
+        await self._send_bitmex_exchange.publish(
+            response, routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY
+        )
 
     async def _on_trades_updated(self, account_id: str, orders_data: typing.List) -> None:
         pass
@@ -334,7 +369,7 @@ class OrderQueueManager(
 
     async def on_cancel_order_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
-            order_id = None
+            cl_order_id = None
 
             response_payload: dict = {}
 
@@ -347,16 +382,10 @@ class OrderQueueManager(
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             except WrongOrderError as e:
-                order_id = e.order_id
+                cl_order_id = e.order_id
                 response_payload.update(
-                    {"success": False, "error": "No matching order"}
+                    {"success": False, "error": "Missing clOrderId"}
                 )
-            else:
-                response_payload.update({"success": True})
-
-            if order_id:
-                await self._on_order_canceled(order_id)
-                response_payload.update({"orderId": order_id})
 
             await self._send_bitmex_exchange.publish(
                 Message(

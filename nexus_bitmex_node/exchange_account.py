@@ -3,6 +3,7 @@ import json
 import uuid
 import typing
 from datetime import datetime
+from json import JSONDecodeError
 
 import ccxtpro
 from ccxt.base.errors import BadRequest, BaseError
@@ -172,6 +173,22 @@ class ExchangeAccount(
 
         await self.emit_order_created_event(message_id, orders=order_results, errors=errors)
 
+    async def _on_cancel_order(self, message_id: str, cancel_order_data: dict):
+        order_id = cancel_order_data["orderId"]
+        account_id = cancel_order_data["accountId"]
+
+        if not order_id or not account_id == self.account_id:
+            return
+
+        error = None
+        canceled_order = None
+        try:
+            canceled_order = await BitmexManager.cancel_order(self._client, order_id)
+        except Exception as e:
+            error = ExchangeAccount.parse_order_error_message(e)
+
+        await self.emit_order_canceled_event(message_id, order=canceled_order, error=error)
+
     async def _on_close_position(self, message_id: str, data: typing.Dict):
         order: BitmexOrder = create_order(data)
 
@@ -265,7 +282,10 @@ class ExchangeAccount(
     def parse_order_error_message(e) -> str:
         args = getattr(e, 'args', ('{}',))
         error = args[0].strip("bitmex ")
-        error = json.loads(error).get("error", {}).get("message", "Unknown Error")
+        try:
+            error = json.loads(error).get("error", {}).get("message", "Unknown Error")
+        except JSONDecodeError:
+            error = "Unknown Error"
         return error
 
 
