@@ -42,7 +42,7 @@ class OrderEventEmitter(EventEmitter):
     async def emit_update_order_event(self, *args, **kwargs):
         await self.emit(UPDATE_ORDER_CMD_KEY, *args, **kwargs)
 
-    async def emit_delete_order_event(self, *args, **kwargs):
+    async def emit_cancel_order_event(self, *args, **kwargs):
         await self.emit(CANCEL_ORDER_CMD_KEY, *args, **kwargs)
 
     async def emit_order_created_event(self, *args, **kwargs):

@@ -21,6 +21,7 @@ from nexus_bitmex_node.exceptions import WrongOrderError
 from nexus_bitmex_node.queues.order.helpers import (
     handle_create_order_message,
     handle_update_order_message,
+    handle_cancel_order_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
 from nexus_bitmex_node.queues.utils import cleanup_queue
@@ -338,7 +339,11 @@ class OrderQueueManager(
             response_payload: dict = {}
 
             try:
-                pass
+                cancel_order_data = await handle_cancel_order_message(message)
+                if cancel_order_data:
+                    message.ack()
+                    await self.emit_cancel_order_event(message.correlation_id, cancel_order_data)
+                    return
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             except WrongOrderError as e:

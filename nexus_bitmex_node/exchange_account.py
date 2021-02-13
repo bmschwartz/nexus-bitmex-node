@@ -66,6 +66,7 @@ class ExchangeAccount(
     def register_listeners(self):
         loop = asyncio.get_event_loop()
         self.register_create_order_listener(self._on_create_order, loop)
+        self.register_cancel_order_listener(self._on_cancel_order, loop)
         self.register_close_position_listener(self._on_close_position, loop)
         self.register_add_stop_to_position_listener(self._on_add_stop_to_position, loop)
         self.register_add_tsl_to_position_listener(self._on_add_tsl_to_position, loop)

@@ -14,7 +14,7 @@ async def handle_create_order_message(message: IncomingMessage) -> bool:
 
     orders = data.get("orders", {})
     if not orders or not orders.get("main", {}).get("id", None):
-        raise WrongOrderError("empty")
+        raise WrongOrderError(None)
 
     return data
 
@@ -30,12 +30,13 @@ async def handle_update_order_message(message: IncomingMessage) -> str:
     return data
 
 
-async def handle_delete_order_message(message: IncomingMessage) -> str:
+async def handle_cancel_order_message(message: IncomingMessage) -> str:
     try:
         data = json.loads(message.body)
     except JSONDecodeError as err:
         raise err
 
-    order_id = data.get("orderId")
+    if not data.get("orderId", None) or not data.get("accountId", None):
+        raise WrongOrderError(None)
 
     return data
