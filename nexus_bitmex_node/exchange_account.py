@@ -1,4 +1,5 @@
 import asyncio
+import json
 import uuid
 import typing
 from datetime import datetime
@@ -141,23 +142,31 @@ class ExchangeAccount(
         margin_balance = margin.get("available", 0)
 
         order_results = {}
+        main_order_result = None
+        errors: typing.Dict[str, str] = {}
         try:
             main_order_result = await BitmexManager.place_order(self._client, main_order, ticker, margin_balance)
             order_results["main"] = main_order_result
-            if stop_order:
+        except Exception as e:
+            errors["main"] = ExchangeAccount.parse_order_error_message(e)
+
+        if stop_order and main_order_result:
+            try:
                 stop_order_result = await BitmexManager.place_stop_order(self._client, stop_order,
                                                                          main_order_result["amount"], ticker)
                 order_results["stop"] = stop_order_result
-            if tsl_order:
+            except Exception as e:
+                errors["stop"] = ExchangeAccount.parse_order_error_message(e)
+
+        if tsl_order and main_order_result:
+            try:
                 tsl_order_result = await BitmexManager.place_tsl_order(self._client, tsl_order,
                                                                        main_order_result["amount"], ticker)
                 order_results["tsl"] = tsl_order_result
-            await self.emit_order_created_event(message_id, orders=order_results)
-        except (BaseError, BadRequest) as e:
-            error = e.args
-            await self.emit_order_created_event(message_id, orders=None, error=e)
-        except Exception as e:
-            await self.emit_order_created_event(message_id, orders=None, error="Unknown Error")
+            except Exception as e:
+                errors["tsl"] = ExchangeAccount.parse_order_error_message(e)
+
+        await self.emit_order_created_event(message_id, orders=order_results, errors=errors)
 
     async def _on_close_position(self, message_id: str, data: typing.Dict):
         order: BitmexOrder = create_order(data)
@@ -247,6 +256,13 @@ class ExchangeAccount(
         except Exception as e:
             error = str(e) or "Unknown Error"
             await self.emit_added_tsl_to_position_event(message_id, tsl_order=None, error=error)
+
+    @staticmethod
+    def parse_order_error_message(e) -> str:
+        args = getattr(e, 'args', ('{}',))
+        error = args[0].strip("bitmex ")
+        error = json.loads(error).get("error", {}).get("message", "Unknown Error")
+        return error
 
 
 class ExchangeAccountManager:

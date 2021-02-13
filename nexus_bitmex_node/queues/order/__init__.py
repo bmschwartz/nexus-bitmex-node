@@ -104,7 +104,8 @@ class OrderQueueManager(
             BITMEX_EXCHANGE, type=ExchangeType.TOPIC, durable=True
         )
 
-    async def _on_order_created(self, message_id: str, orders: typing.Dict, error: Exception = None) -> None:
+    async def _on_order_created(self, message_id: str, orders: typing.Dict,
+                                errors: typing.Dict[str, str] = None) -> None:
         def create_order_data(order_data):
             order = order_data["info"]
             if not order["clOrdID"]:
@@ -126,22 +127,25 @@ class OrderQueueManager(
                 "timestamp": order["timestamp"],
             }
 
-        orders_data = {
-            "main": create_order_data(orders["main"]),
-        }
+        orders_data = None
 
-        stop_order = orders.get("stop", {})
-        tsl_order = orders.get("tsl", {})
+        if orders:
+            orders_data = {
+                "main": create_order_data(orders["main"]),
+            }
 
-        if stop_order:
-            orders_data["stop"] = create_order_data(stop_order)
-        if tsl_order:
-            orders_data["tsl"] = create_order_data(tsl_order)
+            stop_order = orders.get("stop", {})
+            tsl_order = orders.get("tsl", {})
+
+            if stop_order:
+                orders_data["stop"] = create_order_data(stop_order)
+            if tsl_order:
+                orders_data["tsl"] = create_order_data(tsl_order)
 
         response_payload: dict = {
             "orders": orders_data,
-            "success": error is None,
-            "error": error,
+            "success": not errors,
+            "errors": errors,
         }
 
         response = Message(

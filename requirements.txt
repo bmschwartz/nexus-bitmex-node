@@ -8,8 +8,8 @@ aiormq==3.3.1
 async-timeout==3.0.1
 attrs==20.2.0
 boltons==20.2.1
-ccxt==1.41.60.1
-ccxtpro==0.5.53.1
+ccxt==1.41.82.2
+ccxtpro==0.5.63.2
 certifi==2020.6.20
 cffi==1.14.3
 chardet==3.0.4
