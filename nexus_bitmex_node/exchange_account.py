@@ -117,14 +117,17 @@ class ExchangeAccount(
         await self.emit_ticker_updated_event(self.account_id, tickers)
 
     async def _on_create_order(self, message_id: str, order_data: dict):
-        orders = order_data["orders"]
+        orders: typing.Dict[str, dict] = order_data["orders"]
 
-        main_order: BitmexOrder = create_order(orders[0])
+        if not orders.get("main"):
+            await self.emit_order_created_event(message_id, orders=None, errors={"main": "Missing main order"})
+
+        main_order: BitmexOrder = create_order(orders.get("main", {}))
         stop_order: typing.Optional[BitmexOrder] = None
         tsl_order: typing.Optional[BitmexOrder] = None
 
-        for order in orders:
-            cl_order_id = order.get("clOrderId")
+        for order in orders.values():
+            cl_order_id: str = order.get("clOrderId", "")
             if "stop" in cl_order_id:
                 stop_order = create_order(order)
             elif "tsl" in cl_order_id:
