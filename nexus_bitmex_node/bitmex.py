@@ -3,10 +3,14 @@ import typing
 from uuid import uuid4
 
 import ccxtpro
-from ccxt import AuthenticationError, PermissionDenied, ArgumentsRequired, InsufficientFunds, InvalidOrder, \
-    OrderNotFound
-from tenacity import retry, wait_exponential, stop_after_attempt, retry_unless_exception_type, retry_if_not_result, \
-    stop_any, retry_all
+from ccxt import (
+    AuthenticationError, PermissionDenied, ArgumentsRequired,
+    InsufficientFunds, InvalidOrder, OrderNotFound,
+)
+from tenacity import (
+    retry, wait_exponential, stop_after_attempt, retry_all,
+    retry_unless_exception_type, retry_if_not_result,
+)
 
 from nexus_bitmex_node.event_bus import (
     EventBus,
@@ -25,6 +29,10 @@ FATAL_ORDER_EXCEPTIONS = (
     InvalidOrder,
     OrderNotFound,
 )
+
+
+def _set_leverage_successfully(retry_state):
+    return retry_state.get("leverage", None) is not None
 
 
 class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
@@ -259,6 +267,15 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     @staticmethod
     async def cancel_order(client: ccxtpro.bitmex, order_id: str):
         return await client.cancel_order(order_id)
+
+    @staticmethod
+    @retry(reraise=True,
+           stop=stop_after_attempt(3),
+           retry=retry_all(retry_if_not_result(_set_leverage_successfully),
+                           retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
+           wait=wait_exponential(min=5, max=15))
+    async def set_position_leverage(client: ccxtpro.bitmex, symbol: str, leverage: float):
+        return await client.privatePostPositionLeverage({"symbol": symbol, "leverage": leverage})
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
         while self._watching_streams:
