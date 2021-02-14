@@ -120,13 +120,27 @@ class ExchangeAccount(
 
     async def _on_create_order(self, message_id: str, order_data: dict):
         orders: typing.Dict[str, dict] = order_data["orders"]
+        errors: typing.Dict[str, str] = {}
 
         if not orders.get("main"):
             await self.emit_order_created_event(message_id, orders=None, errors={"main": "Missing main order"})
+            return
 
         main_order: BitmexOrder = create_order(orders.get("main", {}))
         stop_order: typing.Optional[BitmexOrder] = None
         tsl_order: typing.Optional[BitmexOrder] = None
+
+        try:
+            await BitmexManager.set_position_leverage(self._client, main_order.symbol, main_order.leverage)
+        except Exception as e:
+            parsed_error = ExchangeAccount.parse_order_error_message(e)
+            errors = {
+                "main": parsed_error,
+                "stop": parsed_error,
+                "tsl": parsed_error,
+            }
+            await self.emit_order_created_event(message_id, orders=None, errors=errors)
+            return
 
         for order in orders.values():
             cl_order_id: str = order.get("clOrderId", "")
@@ -148,14 +162,20 @@ class ExchangeAccount(
 
         order_results = {}
         main_order_result = None
-        errors: typing.Dict[str, str] = {}
         try:
             main_order_result = await BitmexManager.place_order(self._client, main_order, ticker, margin_balance)
             order_results["main"] = main_order_result
         except Exception as e:
-            errors["main"] = ExchangeAccount.parse_order_error_message(e)
+            parsed_error = ExchangeAccount.parse_order_error_message(e)
+            errors = {
+                "main": parsed_error,
+                "stop": parsed_error,
+                "tsl": parsed_error,
+            }
+            await self.emit_order_created_event(message_id, orders=None, errors=errors)
+            return
 
-        if stop_order and main_order_result:
+        if stop_order:
             try:
                 stop_order_result = await BitmexManager.place_stop_order(self._client, stop_order,
                                                                          main_order_result["amount"], ticker)
@@ -163,7 +183,7 @@ class ExchangeAccount(
             except Exception as e:
                 errors["stop"] = ExchangeAccount.parse_order_error_message(e)
 
-        if tsl_order and main_order_result:
+        if tsl_order:
             try:
                 tsl_order_result = await BitmexManager.place_tsl_order(self._client, tsl_order,
                                                                        main_order_result["amount"], ticker)
