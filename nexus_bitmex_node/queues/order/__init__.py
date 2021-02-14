@@ -167,13 +167,12 @@ class OrderQueueManager(
 
         order_qty = order.get("orderQty")
         leaves_qty = order.get("leavesQty")
-        filled_qty = order_qty - leaves_qty if order_qty else None
+        filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
 
         order_data = {
             "remoteOrderId": order["orderID"],
             "status": order["ordStatus"],
             "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
-            "clOrderLinkId": order.get("clOrdLinkID"),
             "orderQty": order_qty,
             "filledQty": filled_qty,
             "price": order.get("price"),
@@ -182,6 +181,7 @@ class OrderQueueManager(
             "pegOffsetValue": order.get("pegOffsetValue"),
             "timestamp": order["timestamp"],
         }
+
         response_payload: dict = {
             "order": order_data,
         }
