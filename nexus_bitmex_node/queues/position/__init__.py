@@ -151,9 +151,9 @@ class PositionQueueManager(
         filled_qty = order_qty - leaves_qty if order_qty and leaves_qty else None
 
         order_data = {
-            "orderId": order["orderID"],
+            "remoteOrderId": order["orderID"],
             "status": order["ordStatus"],
-            "clOrderId": order["clOrdID"],
+            "clOrderId": '_'.join(order["clOrdID"].split("_")[:2]),
             "clOrderLinkId": order["clOrdLinkID"],
             "orderQty": order_qty,
             "filledQty": filled_qty,
@@ -165,7 +165,7 @@ class PositionQueueManager(
         }
 
         response_payload: dict = {
-            "order": order,
+            "orders": {"main": order_data},
             "success": error is None,
             "error": error,
         }

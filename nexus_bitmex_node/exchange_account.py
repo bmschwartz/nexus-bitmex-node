@@ -210,7 +210,12 @@ class ExchangeAccount(
         await self.emit_order_canceled_event(message_id, order=canceled_order, error=error)
 
     async def _on_close_position(self, message_id: str, data: typing.Dict):
-        order: BitmexOrder = create_order(data)
+        main_order_data = data.get("orders", {}).get("main")
+        if not main_order_data:
+            await self.emit_position_closed_event(message_id, None, error="Order data not found in message")
+            return
+
+        order: BitmexOrder = create_order(main_order_data)
 
         position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, order.symbol)
         if not position:

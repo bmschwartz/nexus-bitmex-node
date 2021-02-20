@@ -36,7 +36,11 @@ async def handle_cancel_order_message(message: IncomingMessage) -> str:
     except JSONDecodeError as err:
         raise err
 
-    if not data.get("orderId", None) or not data.get("accountId", None):
+    order_id = data.get("orderId")
+    cl_order_id = data.get("clOrderId")
+    account_id = data.get("accountId")
+
+    if not account_id or not (order_id or cl_order_id):
         raise WrongOrderError(None)
 
     return data
