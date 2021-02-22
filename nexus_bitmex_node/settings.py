@@ -1,9 +1,11 @@
+import os
 from enum import Enum
 from logging.config import dictConfig
 
 from starlette.config import Config
 from starlette.datastructures import CommaSeparatedStrings
 
+from nexus_bitmex_node.ssm_parameter_store import SSMParameterStore
 from nexus_bitmex_node.logger import generate_logging_config, LogLevel, LoggingFormat
 
 
@@ -21,6 +23,8 @@ def serialize_log_level(level: LogLevel) -> str:
 
 config = Config(".env")
 
+app_env = os.environ["APP_ENV"]
+SETTINGS = SSMParameterStore(prefix=f"/nexus/{app_env}")
 
 # Static Settings
 
@@ -36,12 +40,12 @@ HOST = config("HOST", default="127.0.0.1")
 PORT = config("PORT", cast=int, default=8081)
 
 # Redis
-REDIS_URL = config("REDIS_URL")
+REDIS_URL = SETTINGS['redis']['REDIS_URL']
 
 # RabbitMQ
-AMQP_URL = config("AMQP_URL")
+AMQP_URL = SETTINGS['rabbitmq']['AMQP_URL']
 
-BITMEX_EXCHANGE = config("BITMEX_EXCHANGE")
+BITMEX_EXCHANGE = SETTINGS['rabbitmq']['BITMEX_EXCHANGE']
 
 # Logging Configuration
 
