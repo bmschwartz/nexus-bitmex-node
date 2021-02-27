@@ -43,16 +43,16 @@ PORT = config("PORT", cast=int, default=8081)
 # Redis
 REDIS_URL = SETTINGS['redis']['REDIS_URL']
 print("REDIS_URL")
-time.sleep(3)
+time.sleep(5)
 
 # RabbitMQ
 AMQP_URL = SETTINGS['rabbitmq']['AMQP_URL']
 print("AMQP_URL")
-time.sleep(3)
+time.sleep(5)
 
 BITMEX_EXCHANGE = SETTINGS['rabbitmq']['BITMEX_EXCHANGE']
 print("BITMEX_EXCHANGE")
-time.sleep(3)
+time.sleep(5)
 
 # Logging Configuration
 
