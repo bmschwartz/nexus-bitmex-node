@@ -132,12 +132,6 @@ class PositionQueueManager(
             "error": error,
         }
 
-        logger.info({
-            "event": "_on_positions_updated",
-            "account_id": account_id,
-            "positions": len(positions)
-        })
-
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
