@@ -82,7 +82,7 @@ class ExchangeAccount(
             }
         )
 
-        if not settings.SERVER_MODE == ServerMode.PROD:
+        if not settings.SERVER_MODE == ServerMode.PROD and not settings.app_env == "production":
             self._client.set_sandbox_mode(True)
 
         try:
