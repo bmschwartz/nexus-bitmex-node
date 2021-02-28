@@ -1,9 +1,11 @@
 import json
+import logging
 import typing
 import asyncio
 from json import JSONDecodeError
 from uuid import uuid4
 
+import watchtower
 from aio_pika import (
     Queue,
     Connection,
@@ -38,6 +40,9 @@ from nexus_bitmex_node.queues.order.constants import (
     BITMEX_ORDER_UPDATED_EVENT_KEY,
     BITMEX_ORDER_CANCELED_EVENT_KEY,
 )
+
+logger = logging.getLogger(__name__)
+logger.addHandler(watchtower.CloudWatchLogHandler())
 
 
 class OrderQueueManager(
@@ -129,6 +134,8 @@ class OrderQueueManager(
                 "timestamp": order["timestamp"],
             }
 
+        logger.info({"event": "_on_order_created", "message_id": message_id, "errors": errors})
+
         orders_data = None
 
         if orders:
@@ -161,6 +168,8 @@ class OrderQueueManager(
         )
 
     async def _on_order_updated(self, order_update: typing.Dict) -> None:
+        logger.info({"event": "_on_order_updated", "update": order_update})
+
         order = order_update["info"]
         if not order["clOrdID"]:
             return
@@ -216,6 +225,8 @@ class OrderQueueManager(
                 "pegOffsetValue": order_info["pegOffsetValue"],
                 "timestamp": order_info["timestamp"],
             }
+
+        logger.info({"event": "_on_order_canceled", "message_id": message_id, "errors": error})
 
         response_payload: dict = {
             "order": create_order_data(order) if order else None,
@@ -321,6 +332,12 @@ class OrderQueueManager(
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
 
+            logger.error({
+                "event": "on_create_order_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
+
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),
                 delivery_mode=DeliveryMode.PERSISTENT,
@@ -355,6 +372,12 @@ class OrderQueueManager(
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
 
+            logger.error({
+                "event": "on_update_order_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
+
             await self._send_bitmex_exchange.publish(
                 Message(
                     bytes(json.dumps(response_payload), "utf-8"),
@@ -386,6 +409,12 @@ class OrderQueueManager(
                 response_payload.update(
                     {"success": False, "error": "Missing clOrderId"}
                 )
+
+            logger.error({
+                "event": "on_cancel_order_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
 
             await self._send_bitmex_exchange.publish(
                 Message(

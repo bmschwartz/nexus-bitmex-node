@@ -1,10 +1,13 @@
 import asyncio
 import json
 import datetime
+import logging
 from json import JSONDecodeError
 from uuid import uuid4
 
 import typing
+
+import watchtower
 from aio_pika import (
     Queue,
     Connection,
@@ -41,6 +44,9 @@ from .helpers import (
 from ..utils import cleanup_queue
 
 _HEARTBEAT_INTERVAL = 5
+
+logger = logging.getLogger(__name__)
+logger.addHandler(watchtower.CloudWatchLogHandler())
 
 
 class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListener):
@@ -214,7 +220,6 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
 
             response_payload: dict = {}
 
-            print("Received account creation message")
             try:
                 account_id = await handle_create_account_message(
                     message, self._exchange_account_manager, self
@@ -225,12 +230,17 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             except JSONDecodeError:
                 response_payload.update({"success": False, "error": "Invalid Message"})
             else:
-                print(f"Account created {account_id}")
                 await self._on_account_created(account_id)
                 response_payload.update({"success": True})
 
             if account_id:
                 response_payload.update({"accountId": account_id})
+
+            logger.info({
+                "event": "on_create_account_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
 
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),
@@ -266,6 +276,12 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             if account_id:
                 response_payload.update({"accountId": account_id})
 
+            logger.info({
+                "event": "on_update_account_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
+
             await self._send_bitmex_exchange.publish(
                 Message(
                     bytes(json.dumps(response_payload), "utf-8"),
@@ -298,6 +314,12 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
 
             if account_id:
                 response_payload.update({"accountId": account_id})
+
+            logger.info({
+                "event": "on_delete_account_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
 
             await self._send_bitmex_exchange.publish(
                 Message(

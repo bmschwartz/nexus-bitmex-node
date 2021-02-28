@@ -1,11 +1,12 @@
 import json
+import logging
 import time
 import typing
 import asyncio
 from json import JSONDecodeError
 from uuid import uuid4
 
-import aiormq
+import watchtower
 from aio_pika import (
     Queue,
     Connection,
@@ -44,6 +45,9 @@ from nexus_bitmex_node.queues.position.constants import (
 
 
 POSITION_UPDATE_INTERVAL = 10000  # ms
+
+logger = logging.getLogger(__name__)
+logger.addHandler(watchtower.CloudWatchLogHandler())
 
 
 class PositionQueueManager(
@@ -128,6 +132,12 @@ class PositionQueueManager(
             "error": error,
         }
 
+        logger.info({
+            "event": "_on_positions_updated",
+            "account_id": account_id,
+            "positions": len(positions)
+        })
+
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
@@ -170,6 +180,12 @@ class PositionQueueManager(
             "error": error,
         }
 
+        logger.info({
+            "event": "_on_position_closed",
+            "message_id": message_id,
+            "order": order_data
+        })
+
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
@@ -186,6 +202,12 @@ class PositionQueueManager(
             "error": error,
         }
 
+        logger.info({
+            "event": "_on_position_added_stop",
+            "message_id": message_id,
+            "order": stop_order
+        })
+
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
@@ -201,6 +223,12 @@ class PositionQueueManager(
             "success": error is None,
             "error": error,
         }
+
+        logger.info({
+            "event": "_on_position_added_stop",
+            "message_id": message_id,
+            "order": tsl_order
+        })
 
         response = Message(
             bytes(json.dumps(response_payload), "utf-8"),
@@ -303,6 +331,12 @@ class PositionQueueManager(
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
 
+            logger.error({
+                "event": "on_close_position_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
+
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),
                 delivery_mode=DeliveryMode.PERSISTENT,
@@ -330,6 +364,12 @@ class PositionQueueManager(
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
 
+            logger.error({
+                "event": "on_position_add_stop_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
+
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),
                 delivery_mode=DeliveryMode.PERSISTENT,
@@ -356,6 +396,12 @@ class PositionQueueManager(
                 response_payload.update({"success": False, "error": "Invalid Message"})
             else:
                 response_payload.update({"success": False, "error": "Unknown Error"})
+
+            logger.error({
+                "event": "on_position_add_tsl_message",
+                "message_id": message.correlation_id,
+                "response": response_payload
+            })
 
             response = Message(
                 bytes(json.dumps(response_payload), "utf-8"),

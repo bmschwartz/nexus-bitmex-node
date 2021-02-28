@@ -1,8 +1,10 @@
 import json
+import logging
 import typing
 from uuid import uuid4
 
 import ccxtpro
+import watchtower
 from ccxt import (
     AuthenticationError, PermissionDenied, ArgumentsRequired,
     InsufficientFunds, InvalidOrder, OrderNotFound,
@@ -29,6 +31,9 @@ FATAL_ORDER_EXCEPTIONS = (
     InvalidOrder,
     OrderNotFound,
 )
+
+logger = logging.getLogger(__name__)
+logger.addHandler(watchtower.CloudWatchLogHandler())
 
 
 def _set_leverage_successfully(retry_state):
@@ -67,6 +72,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             params = {
                 "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}"
             }
+            logger.info({
+                "event": "BitmexManager.place_order",
+                "order": order.to_json(),
+                "params": params,
+            })
             return await order_func(symbol, side, quantity, price, params)
 
         price = order.price or ticker.get("last_price_protected")
@@ -97,6 +107,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
                 "clOrdID": f"{stop_order.client_order_id}_{str(uuid4())[:4]}",
                 "execInst": f"ReduceOnly,{trigger_type}",
             }
+            logger.info({
+                "event": "BitmexManager.place_stop_order",
+                "order": stop_order.to_json(),
+                "params": params,
+            })
             return await client.create_order(market_symbol, order_type, side, amount=quantity, price=stop_price,
                                              params=params)
 
@@ -104,9 +119,17 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             StopTriggerType(stop_order.stop_trigger_type)
         )
         if not trigger_type:
+            logger.error({
+                "event": "BitmexManager.place_stop_order",
+                "error": "Invalid Stop Trigger Type"
+            })
             raise ValueError("Invalid Stop Trigger Type")
 
         if not stop_order.stop_price:
+            logger.error({
+                "event": "BitmexManager.place_stop_order",
+                "error": "Stop Price Missing"
+            })
             raise ValueError("Stop Price Missing")
 
         symbol: BitmexSymbol = create_symbol(ticker)
@@ -137,6 +160,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
                 "clOrdID": f"{tsl_order.client_order_id}_{str(uuid4())[:4]}",
                 "execInst": f"ReduceOnly,{trigger_type}",
             }
+            logger.info({
+                "event": "BitmexManager.place_tsl_order",
+                "order": tsl_order.to_json(),
+                "params": params,
+            })
             return await client.create_order(market_symbol, order_type,
                                              BitmexOrder.convert_order_side(tsl_order.side),
                                              amount=quantity, price=stop_price, params=params)
@@ -145,9 +173,17 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             StopTriggerType(tsl_order.stop_trigger_type)
         )
         if not trigger_type:
+            logger.error({
+                "event": "BitmexManager.place_tsl_order",
+                "error": "Invalid Stop Trigger Type",
+            })
             raise ValueError("Invalid Stop Trigger Type")
 
         if not tsl_order.trailing_stop_percent:
+            logger.error({
+                "event": "BitmexManager.place_tsl_order",
+                "error": "Trailing Stop Percent Missing",
+            })
             raise ValueError("Trailing Stop Percent Missing")
 
         symbol: BitmexSymbol = create_symbol(ticker)
@@ -197,6 +233,16 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         side = BitmexOrder.convert_order_side(order.side)
 
         order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if order.price else OrderType.MARKET)
+
+        logger.info({
+            "event": "BitmexManager.close_position",
+            "order_type": order_type,
+            "side": side,
+            "symbol": symbol,
+            "order_quantity": order_quantity,
+            "price": order.price,
+            "params": params
+        })
         return await client.create_order(symbol, order_type, side, order_quantity, order.price, params=params)
 
     @staticmethod
@@ -209,6 +255,10 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     ):
         trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(StopTriggerType(trigger_price_type))
         if not trigger_type:
+            logger.error({
+                "event": "BitmexManager.add_stop_to_position",
+                "error": "Invalid Stop Trigger Type"
+            })
             raise ValueError("Invalid Stop Trigger Type")
         params: typing.Dict[str, typing.Any] = {"execInst": f"Close,{trigger_type}"}
 
@@ -221,6 +271,14 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
         market_symbol = client.safe_symbol(symbol.symbol)
 
+        logger.info({
+            "event": "BitmexManager.add_stop_to_position",
+            "order_type": order_type,
+            "symbol": symbol,
+            "side": side,
+            "price": stop_price,
+            "params": params
+        })
         return await client.create_order(market_symbol, order_type, side, amount=None, price=stop_price, params=params)
 
     @staticmethod
@@ -233,6 +291,10 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
     ):
         trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(StopTriggerType(trigger_price_type))
         if not trigger_type:
+            logger.info({
+                "event": "BitmexManager.add_tsl_to_position",
+                "error": "Invalid Stop Trigger Type"
+            })
             raise ValueError("Invalid Stop Trigger Type")
 
         tsl_fraction = tsl_percent / 100
@@ -261,11 +323,24 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             "execInst": f"Close,{trigger_type}",
         }
 
+        logger.info({
+            "event": "BitmexManager.add_tsl_to_position",
+            "symbol": market_symbol,
+            "order_type": order_type,
+            "side": tsl_side,
+            "price": stop_price,
+            "params": params
+        })
+
         return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price,
                                          params=params)
 
     @staticmethod
     async def cancel_order(client: ccxtpro.bitmex, order_id: str):
+        logger.info({
+            "event": "BitmexManager.cancel_order",
+            "order_id": order_id,
+        })
         return await client.cancel_order(order_id)
 
     @staticmethod
@@ -275,6 +350,11 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
                            retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
            wait=wait_exponential(min=5, max=15))
     async def set_position_leverage(client: ccxtpro.bitmex, symbol: str, leverage: float):
+        logger.info({
+            "event": "BitmexManager.set_position_leverage",
+            "symbol": symbol,
+            "leverage": leverage,
+        })
         return await client.privatePostPositionLeverage({"symbol": symbol, "leverage": leverage})
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
