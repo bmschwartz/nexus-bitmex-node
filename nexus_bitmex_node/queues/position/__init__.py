@@ -18,6 +18,7 @@ from aio_pika import (
     DeliveryMode,
 )
 
+from nexus_bitmex_node import settings
 from nexus_bitmex_node.event_bus import PositionEventEmitter, EventBus, PositionEventListener, AccountEventListener, \
     ExchangeEventListener
 from nexus_bitmex_node.models.position import create_position
@@ -47,7 +48,7 @@ from nexus_bitmex_node.queues.position.constants import (
 POSITION_UPDATE_INTERVAL = 10000  # ms
 
 logger = logging.getLogger(__name__)
-logger.addHandler(watchtower.CloudWatchLogHandler())
+logger.addHandler(watchtower.CloudWatchLogHandler(log_group="nexus-bitmex-node", stream_name=settings.app_env))
 
 
 class PositionQueueManager(

@@ -46,7 +46,7 @@ from ..utils import cleanup_queue
 _HEARTBEAT_INTERVAL = 5
 
 logger = logging.getLogger(__name__)
-logger.addHandler(watchtower.CloudWatchLogHandler())
+logger.addHandler(watchtower.CloudWatchLogHandler(log_group="nexus-bitmex-node", stream_name=settings.app_env))
 
 
 class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListener):

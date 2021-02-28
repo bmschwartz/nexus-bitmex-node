@@ -24,7 +24,7 @@ def start(host, port):
         "nexus_bitmex_node.app:app",
         host=host,
         port=port,
-        log_config=settings.LOGGING_CONFIG,
+        # log_config=settings.LOGGING_CONFIG,
         reload=settings.SERVER_RELOAD,
     )
 

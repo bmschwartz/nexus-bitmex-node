@@ -17,6 +17,7 @@ from aio_pika import (
     DeliveryMode,
 )
 
+from nexus_bitmex_node import settings
 from nexus_bitmex_node.event_bus import OrderEventEmitter, EventBus, OrderEventListener, AccountEventListener, \
     ExchangeEventListener
 from nexus_bitmex_node.exceptions import WrongOrderError
@@ -42,7 +43,7 @@ from nexus_bitmex_node.queues.order.constants import (
 )
 
 logger = logging.getLogger(__name__)
-logger.addHandler(watchtower.CloudWatchLogHandler())
+logger.addHandler(watchtower.CloudWatchLogHandler(log_group="nexus-bitmex-node", stream_name=settings.app_env))
 
 
 class OrderQueueManager(

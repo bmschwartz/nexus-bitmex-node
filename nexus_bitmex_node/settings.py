@@ -3,6 +3,7 @@ import time
 from enum import Enum
 import logging
 
+import watchtower
 from starlette.config import Config
 from starlette.datastructures import CommaSeparatedStrings
 
@@ -27,6 +28,7 @@ config = Config(".env")
 logging.basicConfig(level=logging.INFO)
 
 app_env = os.environ["APP_ENV"]
+
 SETTINGS = SSMParameterStore(prefix=f"/nexus/{app_env}")
 
 # Static Settings
@@ -45,6 +47,9 @@ PORT = config("PORT", cast=int, default=8081)
 # Redis
 REDIS_URL = SETTINGS['redis']['REDIS_URL']
 print("REDIS_URL")
+logger.info("REDIS_URL")
+logger.info(dict(message="REDIS_URL_DICT"))
+logger.info({"message": "REDIS_URL_MESSAGE"})
 time.sleep(0.5)
 
 # RabbitMQ
@@ -69,23 +74,23 @@ LOGGING_FORMAT = config(
     "LOGGING_FORMAT", cast=LoggingFormat, default=LoggingFormat.DEFAULT
 )
 
-if SERVER_MODE not in [ServerMode.STAGING, ServerMode.DEMO, ServerMode.PROD]:
-    LOGGING_CONFIG = generate_logging_config(
-        APP_NAME,
-        level=serialize_log_level(LOG_LEVEL_ENUM),
-        log_handler="logging.StreamHandler",
-        formatter=LOGGING_FORMAT.value,
-        debug_loggers=DEBUG_LOGGERS,
-        warning_loggers=WARNING_LOGGERS,
-        info_loggers=INFO_LOGGERS,
-    )
-else:
-    LOGGING_CONFIG = generate_logging_config(
-        APP_NAME,
-        level=serialize_log_level(LOG_LEVEL_ENUM),
-        debug_loggers=DEBUG_LOGGERS,
-        warning_loggers=WARNING_LOGGERS,
-        info_loggers=INFO_LOGGERS,
-    )
+# if SERVER_MODE not in [ServerMode.STAGING, ServerMode.DEMO, ServerMode.PROD]:
+#     LOGGING_CONFIG = generate_logging_config(
+#         APP_NAME,
+#         level=serialize_log_level(LOG_LEVEL_ENUM),
+#         log_handler="logging.StreamHandler",
+#         formatter=LOGGING_FORMAT.value,
+#         debug_loggers=DEBUG_LOGGERS,
+#         warning_loggers=WARNING_LOGGERS,
+#         info_loggers=INFO_LOGGERS,
+#     )
+# else:
+#     LOGGING_CONFIG = generate_logging_config(
+#         APP_NAME,
+#         level=serialize_log_level(LOG_LEVEL_ENUM),
+#         debug_loggers=DEBUG_LOGGERS,
+#         warning_loggers=WARNING_LOGGERS,
+#         info_loggers=INFO_LOGGERS,
+#     )
 
 # dictConfig(LOGGING_CONFIG)

@@ -14,6 +14,7 @@ from tenacity import (
     retry_unless_exception_type, retry_if_not_result,
 )
 
+from nexus_bitmex_node import settings
 from nexus_bitmex_node.event_bus import (
     EventBus,
     event_bus,
@@ -33,7 +34,7 @@ FATAL_ORDER_EXCEPTIONS = (
 )
 
 logger = logging.getLogger(__name__)
-logger.addHandler(watchtower.CloudWatchLogHandler())
+logger.addHandler(watchtower.CloudWatchLogHandler(log_group="nexus-bitmex-node", stream_name=settings.app_env))
 
 
 def _set_leverage_successfully(retry_state):
