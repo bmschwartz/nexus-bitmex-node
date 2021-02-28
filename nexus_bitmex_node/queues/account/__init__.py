@@ -42,6 +42,7 @@ from .helpers import (
     handle_delete_account_message,
 )
 from ..utils import cleanup_queue
+from ... import settings
 
 _HEARTBEAT_INTERVAL = 5
 
