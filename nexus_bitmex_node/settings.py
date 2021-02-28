@@ -47,6 +47,7 @@ PORT = config("PORT", cast=int, default=8081)
 # Redis
 REDIS_URL = SETTINGS['redis']['REDIS_URL']
 print("REDIS_URL")
+logger = logging.getLogger(__name__)
 logger.info("REDIS_URL")
 logger.info(dict(message="REDIS_URL_DICT"))
 logger.info({"message": "REDIS_URL_MESSAGE"})
