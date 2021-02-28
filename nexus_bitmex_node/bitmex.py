@@ -75,7 +75,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             }
             logger.info({
                 "event": "BitmexManager.place_order",
-                "order": order.to_json(),
+                "order": order,
                 "params": params,
             })
             return await order_func(symbol, side, quantity, price, params)
@@ -110,7 +110,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             }
             logger.info({
                 "event": "BitmexManager.place_stop_order",
-                "order": stop_order.to_json(),
+                "order": stop_order,
                 "params": params,
             })
             return await client.create_order(market_symbol, order_type, side, amount=quantity, price=stop_price,
@@ -163,7 +163,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             }
             logger.info({
                 "event": "BitmexManager.place_tsl_order",
-                "order": tsl_order.to_json(),
+                "order": tsl_order,
                 "params": params,
             })
             return await client.create_order(market_symbol, order_type,
