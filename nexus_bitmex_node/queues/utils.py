@@ -3,6 +3,9 @@ import typing
 from aio_pika import Queue, Exchange
 
 
+MESSAGE_EXPIRATION_SECONDS = 600
+
+
 async def cleanup_queue(queue: Queue, exchange: Exchange, routing_key: typing.Optional[str] = None):
     try:
         await queue.purge()

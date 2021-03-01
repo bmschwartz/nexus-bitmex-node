@@ -28,7 +28,7 @@ from nexus_bitmex_node.queues.position.helpers import (
     handle_add_tsl_to_position_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
-from nexus_bitmex_node.queues.utils import cleanup_queue
+from nexus_bitmex_node.queues.utils import cleanup_queue, MESSAGE_EXPIRATION_SECONDS
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.position.constants import (
@@ -137,6 +137,7 @@ class PositionQueueManager(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
 
         await self._send_bitmex_exchange.publish(
@@ -186,6 +187,7 @@ class PositionQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             correlation_id=message_id,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_POSITION_CLOSED_EVENT_KEY
@@ -208,6 +210,7 @@ class PositionQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             correlation_id=message_id,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_POSITION_ADDED_STOP_EVENT_KEY
@@ -230,6 +233,7 @@ class PositionQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             correlation_id=message_id,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_POSITION_ADDED_TSL_EVENT_KEY
@@ -337,6 +341,7 @@ class PositionQueueManager(
                 delivery_mode=DeliveryMode.PERSISTENT,
                 correlation_id=message.correlation_id,
                 content_type="application/json",
+                expiration=MESSAGE_EXPIRATION_SECONDS,
             )
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_POSITION_CLOSED_EVENT_KEY
@@ -370,6 +375,7 @@ class PositionQueueManager(
                 delivery_mode=DeliveryMode.PERSISTENT,
                 correlation_id=message.correlation_id,
                 content_type="application/json",
+                expiration=MESSAGE_EXPIRATION_SECONDS,
             )
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_POSITION_ADDED_STOP_EVENT_KEY
@@ -403,6 +409,7 @@ class PositionQueueManager(
                 delivery_mode=DeliveryMode.PERSISTENT,
                 correlation_id=message.correlation_id,
                 content_type="application/json",
+                expiration=MESSAGE_EXPIRATION_SECONDS,
             )
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_POSITION_ADDED_TSL_EVENT_KEY

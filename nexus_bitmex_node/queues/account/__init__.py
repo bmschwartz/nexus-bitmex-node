@@ -41,7 +41,7 @@ from .helpers import (
     handle_update_account_message,
     handle_delete_account_message,
 )
-from ..utils import cleanup_queue
+from ..utils import cleanup_queue, MESSAGE_EXPIRATION_SECONDS
 from ... import settings
 
 _HEARTBEAT_INTERVAL = 5
@@ -248,6 +248,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                 delivery_mode=DeliveryMode.PERSISTENT,
                 correlation_id=message.correlation_id,
                 content_type="application/json",
+                expiration=MESSAGE_EXPIRATION_SECONDS,
             )
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_ACCOUNT_CREATED_EVENT_KEY
@@ -289,6 +290,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
+                    expiration=MESSAGE_EXPIRATION_SECONDS,
                 ),
                 routing_key=BITMEX_ACCOUNT_UPDATED_EVENT_KEY,
             )
@@ -328,6 +330,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
+                    expiration=MESSAGE_EXPIRATION_SECONDS,
                 ),
                 routing_key=BITMEX_ACCOUNT_DELETED_EVENT_KEY,
             )

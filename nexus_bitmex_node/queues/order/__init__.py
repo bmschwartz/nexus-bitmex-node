@@ -27,7 +27,7 @@ from nexus_bitmex_node.queues.order.helpers import (
     handle_cancel_order_message,
 )
 from nexus_bitmex_node.queues.queue_manager import QueueManager, QUEUE_EXPIRATION_TIME
-from nexus_bitmex_node.queues.utils import cleanup_queue
+from nexus_bitmex_node.queues.utils import cleanup_queue, MESSAGE_EXPIRATION_SECONDS
 from nexus_bitmex_node.settings import BITMEX_EXCHANGE
 
 from nexus_bitmex_node.queues.order.constants import (
@@ -163,6 +163,7 @@ class OrderQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             correlation_id=message_id,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
@@ -200,6 +201,7 @@ class OrderQueueManager(
             bytes(json.dumps(response_payload), "utf-8"),
             delivery_mode=DeliveryMode.PERSISTENT,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY
@@ -240,6 +242,7 @@ class OrderQueueManager(
             delivery_mode=DeliveryMode.PERSISTENT,
             correlation_id=message_id,
             content_type="application/json",
+            expiration=MESSAGE_EXPIRATION_SECONDS,
         )
         await self._send_bitmex_exchange.publish(
             response, routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY
@@ -344,6 +347,7 @@ class OrderQueueManager(
                 delivery_mode=DeliveryMode.PERSISTENT,
                 correlation_id=message.correlation_id,
                 content_type="application/json",
+                expiration=MESSAGE_EXPIRATION_SECONDS,
             )
             await self._send_bitmex_exchange.publish(
                 response, routing_key=BITMEX_ORDER_CREATED_EVENT_KEY
@@ -385,6 +389,7 @@ class OrderQueueManager(
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
+                    expiration=MESSAGE_EXPIRATION_SECONDS,
                 ),
                 routing_key=BITMEX_ORDER_UPDATED_EVENT_KEY,
             )
@@ -423,6 +428,7 @@ class OrderQueueManager(
                     delivery_mode=DeliveryMode.PERSISTENT,
                     correlation_id=message.correlation_id,
                     content_type="application/json",
+                    expiration=MESSAGE_EXPIRATION_SECONDS,
                 ),
                 routing_key=BITMEX_ORDER_CANCELED_EVENT_KEY,
             )
