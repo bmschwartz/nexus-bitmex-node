@@ -294,6 +294,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                 ),
                 routing_key=BITMEX_ACCOUNT_UPDATED_EVENT_KEY,
             )
+            message.ack()
 
     async def on_delete_account_message(self, message: IncomingMessage):
         async with message.process(ignore_processed=True):
@@ -310,8 +311,13 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             except WrongAccountError as e:
                 account_id = e.account_id
                 response_payload.update({"success": False, "error": "No matching account"})
+            except Exception as e:
+                """""""""""""""
+                TODO THIS!!! WHAT DO?
+                """""
+                message.reject(True)
+                return
             else:
-                message.ack()
                 await self._on_account_deleted()
                 response_payload.update({"success": True})
 
@@ -334,3 +340,4 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                 ),
                 routing_key=BITMEX_ACCOUNT_DELETED_EVENT_KEY,
             )
+            message.ack()

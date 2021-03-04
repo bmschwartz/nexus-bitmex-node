@@ -1,6 +1,7 @@
 import asyncio
 import json
 import uuid
+import time
 import typing
 from datetime import datetime
 from json import JSONDecodeError
@@ -16,7 +17,7 @@ from nexus_bitmex_node.event_bus import (
     EventBus, AccountEventEmitter, ExchangeEventEmitter, PositionEventEmitter, PositionEventListener,
 )
 from nexus_bitmex_node.exceptions import InvalidApiKeysError
-from nexus_bitmex_node.models.order import BitmexOrder, create_order, StopTriggerType, OrderSide
+from nexus_bitmex_node.models.order import BitmexOrder, create_order, StopTriggerType
 from nexus_bitmex_node.models.position import BitmexPosition
 from nexus_bitmex_node.models.symbol import BitmexSymbol, create_symbol
 from nexus_bitmex_node.settings import ServerMode
@@ -321,28 +322,34 @@ class ExchangeAccountManager:
         self._last_update: datetime = datetime.now()
         self._account: typing.Optional[ExchangeAccount] = None
 
+        self.start_time: typing.Optional[time.struct_time] = None
+
     @property
     def account(self) -> typing.Optional[ExchangeAccount]:
         return self._account
 
-    async def connect(self, account_id: str, api_key: str, api_secret: str):
+    async def connect(self, account_id: str, api_key: str, api_secret: str,
+                      start_time: typing.Optional[time.struct_time]):
         """
         Connect a Bitmex account with the given API keys
         :param account_id: Identifies the user
         :param api_key: Bitmex API Key
         :param api_secret: Bitmex API Secret
+        :param start_time: Time that the account was started
         """
         await self.disconnect()
 
         try:
             self._account = ExchangeAccount(self._event_bus, self._data_store, account_id, api_key, api_secret)
             await self._account.start()
+            self.start_time = start_time
         except InvalidApiKeysError as e:
             await self.disconnect()
+            self.start_time = None
             raise e
 
     async def disconnect(self):
         if self._account:
             await self._account.disconnect()
         self._account = None
-
+        self.start_time = None
