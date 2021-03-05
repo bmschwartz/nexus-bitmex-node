@@ -312,10 +312,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
                 account_id = e.account_id
                 response_payload.update({"success": False, "error": "No matching account"})
             except Exception as e:
-                """""""""""""""
-                TODO THIS!!! WHAT DO?
-                """""
-                message.reject(True)
+                message.reject()
                 return
             else:
                 await self._on_account_deleted()
