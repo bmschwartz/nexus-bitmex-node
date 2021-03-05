@@ -40,7 +40,7 @@ s3transfer==0.3.4
 six==1.15.0
 starlette==0.13.8
 stringcase==1.2.0
-tenacity==6.3.1
+tenacity==7.0.0
 toml==0.10.2
 typed-ast==1.4.1
 typing-extensions==3.7.4.3
