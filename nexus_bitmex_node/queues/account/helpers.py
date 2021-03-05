@@ -60,7 +60,11 @@ async def handle_delete_account_message(message: IncomingMessage, account_manage
 
     account_started_at = account_manager.start_time or None
     message_timestamp = message.timestamp
-    if (account_started_at and message_timestamp) and account_started_at > message_timestamp:
+
+    if not account_started_at or not message_timestamp:
+        return None
+
+    if account_started_at > message_timestamp:
         # If the account was created AFTER this delete message, ignore it
         return None
 
