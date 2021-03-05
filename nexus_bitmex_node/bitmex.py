@@ -2,6 +2,7 @@ import json
 import logging
 import typing
 from uuid import uuid4
+from datetime import datetime
 
 import ccxtpro
 import watchtower
@@ -10,8 +11,10 @@ from ccxt import (
     InsufficientFunds, InvalidOrder, OrderNotFound,
 )
 from tenacity import (
-    retry, wait_exponential, stop_after_attempt, retry_all,
-    retry_unless_exception_type, retry_if_not_result,
+    wait_random,
+    AsyncRetrying,
+    stop_after_attempt,
+    retry_unless_exception_type,
 )
 
 from nexus_bitmex_node import settings
@@ -64,21 +67,25 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_order(client: ccxtpro.bitmex, order: BitmexOrder, ticker, margin):
-        @retry(reraise=True,
-               stop=stop_after_attempt(3),
-               retry=retry_all(retry_if_not_result(_is_successful_order),
-                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
-               wait=wait_exponential(min=5, max=15))
         async def execute_order():
-            params = {
-                "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}"
-            }
-            logger.info({
-                "event": "BitmexManager.place_order",
-                "order": order,
-                "params": params,
-            })
-            return await order_func(symbol, side, quantity, price, params)
+            async for attempt in AsyncRetrying(reraise=True,
+                                               stop=stop_after_attempt(3),
+                                               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                               wait=wait_random(min=5, max=20)):
+                with attempt:
+                    params = {
+                        "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}"
+                    }
+                    logger.info({
+                        "event": "BitmexManager.place_order",
+                        "order": order,
+                        "params": params,
+                        "timestamp": datetime.now()
+                    })
+                    result = await order_func(symbol, side, quantity, price, params)
+                    if result.get("status", None) is not None:
+                        return result
+                    raise Exception('{}')
 
         price = order.price or ticker.get("last_price_protected")
         side = BitmexOrder.convert_order_side(order.side)
@@ -97,24 +104,29 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_stop_order(client: ccxtpro.bitmex, stop_order: BitmexOrder, quantity, ticker):
-        @retry(reraise=True,
-               stop=stop_after_attempt(3),
-               retry=retry_all(retry_if_not_result(_is_successful_order),
-                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
-               wait=wait_exponential(min=5, max=15))
         async def execute_stop_order():
-            params: typing.Dict[str, typing.Any] = {
-                "stopPx": stop_price,
-                "clOrdID": f"{stop_order.client_order_id}_{str(uuid4())[:4]}",
-                "execInst": f"ReduceOnly,{trigger_type}",
-            }
-            logger.info({
-                "event": "BitmexManager.place_stop_order",
-                "order": stop_order,
-                "params": params,
-            })
-            return await client.create_order(market_symbol, order_type, side, amount=quantity, price=stop_price,
-                                             params=params)
+            async for attempt in AsyncRetrying(reraise=True,
+                                               stop=stop_after_attempt(3),
+                                               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                               wait=wait_random(min=5, max=20)):
+                with attempt:
+                    params: typing.Dict[str, typing.Any] = {
+                        "stopPx": stop_price,
+                        "clOrdID": f"{stop_order.client_order_id}_{str(uuid4())[:4]}",
+                        "execInst": f"ReduceOnly,{trigger_type}",
+                    }
+                    logger.info({
+                        "event": "BitmexManager.place_stop_order",
+                        "order": stop_order,
+                        "params": params,
+                        "timestamp": datetime.now(),
+                    })
+                    result = await client.create_order(market_symbol, order_type, side, amount=quantity,
+                                                       price=stop_price,
+                                                       params=params)
+                    if result.get("status", None) is not None:
+                        return result
+                    raise Exception('{}')
 
         trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(
             StopTriggerType(stop_order.stop_trigger_type)
@@ -122,14 +134,16 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         if not trigger_type:
             logger.error({
                 "event": "BitmexManager.place_stop_order",
-                "error": "Invalid Stop Trigger Type"
+                "error": "Invalid Stop Trigger Type",
+                "timestamp": datetime.now()
             })
             raise ValueError("Invalid Stop Trigger Type")
 
         if not stop_order.stop_price:
             logger.error({
                 "event": "BitmexManager.place_stop_order",
-                "error": "Stop Price Missing"
+                "error": "Stop Price Missing",
+                "timestamp": datetime.now(),
             })
             raise ValueError("Stop Price Missing")
 
@@ -148,27 +162,30 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def place_tsl_order(client: ccxtpro.bitmex, tsl_order: BitmexOrder, quantity, ticker):
-        @retry(reraise=True,
-               stop=stop_after_attempt(3),
-               retry=retry_all(retry_if_not_result(_is_successful_order),
-                               retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
-               wait=wait_exponential(min=5, max=15))
         async def execute_tsl_order():
-            params: typing.Dict[str, typing.Any] = {
-                "stopPx": stop_price,
-                "pegOffsetValue": peg_offset_value,
-                "pegPriceType": "TrailingStopPeg",
-                "clOrdID": f"{tsl_order.client_order_id}_{str(uuid4())[:4]}",
-                "execInst": f"ReduceOnly,{trigger_type}",
-            }
-            logger.info({
-                "event": "BitmexManager.place_tsl_order",
-                "order": tsl_order,
-                "params": params,
-            })
-            return await client.create_order(market_symbol, order_type,
-                                             BitmexOrder.convert_order_side(tsl_order.side),
-                                             amount=quantity, price=stop_price, params=params)
+            async for attempt in AsyncRetrying(reraise=True,
+                                               stop=stop_after_attempt(3),
+                                               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                               wait=wait_random(min=5, max=20)):
+                with attempt:
+                    params: typing.Dict[str, typing.Any] = {
+                        "stopPx": stop_price,
+                        "pegOffsetValue": peg_offset_value,
+                        "pegPriceType": "TrailingStopPeg",
+                        "clOrdID": f"{tsl_order.client_order_id}_{str(uuid4())[:4]}",
+                        "execInst": f"ReduceOnly,{trigger_type}",
+                    }
+                    logger.info({
+                        "event": "BitmexManager.place_tsl_order",
+                        "order": tsl_order,
+                        "params": params,
+                    })
+                    result = await client.create_order(market_symbol, order_type,
+                                                       BitmexOrder.convert_order_side(tsl_order.side),
+                                                       amount=quantity, price=stop_price, params=params)
+                    if result.get("status", None) is not None:
+                        return result
+                    raise Exception('{}')
 
         trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(
             StopTriggerType(tsl_order.stop_trigger_type)
@@ -222,11 +239,34 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         order: BitmexOrder,
         position: BitmexPosition,
     ):
+        async def execute_close():
+            async for attempt in AsyncRetrying(reraise=True,
+                                               stop=stop_after_attempt(3),
+                                               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                               wait=wait_random(min=5, max=20)):
+                with attempt:
+                    params: typing.Dict[str, typing.Any] = {
+                        "execInst": "Close",
+                        "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}",
+                    }
+
+                    logger.info({
+                        "event": "BitmexManager.close_position",
+                        "order_type": order_type,
+                        "side": side,
+                        "symbol": symbol,
+                        "order_quantity": order_quantity,
+                        "price": order.price,
+                        "params": params,
+                        "timestamp": datetime.now(),
+                    })
+                    result = await client.create_order(symbol, order_type, side, order_quantity, order.price,
+                                                       params=params)
+                    if result.get("status", None) is not None:
+                        return result
+                    raise Exception('{}')
+
         symbol = client.safe_symbol(order.symbol)
-        params: typing.Dict[str, typing.Any] = {
-            "execInst": "Close",
-            "clOrdID": f"{order.client_order_id}_{str(uuid4())[:4]}",
-        }
 
         min_max_func = max if position.current_quantity > 0 else min
         order_quantity = -1 * min_max_func(1, round(order.percent * position.current_quantity)) / 100
@@ -235,16 +275,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
         order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if order.price else OrderType.MARKET)
 
-        logger.info({
-            "event": "BitmexManager.close_position",
-            "order_type": order_type,
-            "side": side,
-            "symbol": symbol,
-            "order_quantity": order_quantity,
-            "price": order.price,
-            "params": params
-        })
-        return await client.create_order(symbol, order_type, side, order_quantity, order.price, params=params)
+        return await execute_close()
 
     @staticmethod
     async def add_stop_to_position(
@@ -254,14 +285,39 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         raw_price: float,
         trigger_price_type: StopTriggerType
     ):
+        async def execute_order():
+            async for attempt in AsyncRetrying(reraise=True,
+                                               stop=stop_after_attempt(3),
+                                               retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                               wait=wait_random(min=5, max=20)):
+                with attempt:
+                    params: typing.Dict[str, typing.Any] = {
+                        "execInst": f"Close,{trigger_type}"
+                    }
+
+                    logger.info({
+                        "event": "BitmexManager.add_stop_to_position",
+                        "order_type": order_type,
+                        "symbol": symbol,
+                        "side": side,
+                        "price": stop_price,
+                        "params": params,
+                        "timestamp": datetime.now(),
+                    })
+                    result = await client.create_order(market_symbol, order_type, side, amount=None, price=stop_price,
+                                                       params=params)
+                    if result.get("status", None) is not None:
+                        return result
+                    raise Exception('{}')
+
         trigger_type: typing.Optional[str] = BitmexOrder.convert_trigger_type(StopTriggerType(trigger_price_type))
         if not trigger_type:
             logger.error({
                 "event": "BitmexManager.add_stop_to_position",
-                "error": "Invalid Stop Trigger Type"
+                "error": "Invalid Stop Trigger Type",
+                "timestamp": datetime.now(),
             })
             raise ValueError("Invalid Stop Trigger Type")
-        params: typing.Dict[str, typing.Any] = {"execInst": f"Close,{trigger_type}"}
 
         # Rounds price off to the correct tick_size and digits
         stop_price = float(round(raw_price, symbol.fractional_digits))
@@ -272,15 +328,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         order_type: typing.Optional[str] = BitmexOrder.convert_order_type(OrderType.STOP)
         market_symbol = client.safe_symbol(symbol.symbol)
 
-        logger.info({
-            "event": "BitmexManager.add_stop_to_position",
-            "order_type": order_type,
-            "symbol": symbol,
-            "side": side,
-            "price": stop_price,
-            "params": params
-        })
-        return await client.create_order(market_symbol, order_type, side, amount=None, price=stop_price, params=params)
+        return await execute_order()
 
     @staticmethod
     async def add_tsl_to_position(
@@ -294,7 +342,8 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         if not trigger_type:
             logger.info({
                 "event": "BitmexManager.add_tsl_to_position",
-                "error": "Invalid Stop Trigger Type"
+                "error": "Invalid Stop Trigger Type",
+                "timestamp": datetime.now(),
             })
             raise ValueError("Invalid Stop Trigger Type")
 
@@ -330,7 +379,8 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
             "order_type": order_type,
             "side": tsl_side,
             "price": stop_price,
-            "params": params
+            "params": params,
+            "timestamp": datetime.now(),
         })
 
         return await client.create_order(market_symbol, order_type, tsl_side, amount=None, price=stop_price,
@@ -338,25 +388,35 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
 
     @staticmethod
     async def cancel_order(client: ccxtpro.bitmex, order_id: str):
-        logger.info({
-            "event": "BitmexManager.cancel_order",
-            "order_id": order_id,
-        })
-        return await client.cancel_order(order_id)
+        async for attempt in AsyncRetrying(reraise=True,
+                                           stop=stop_after_attempt(3),
+                                           retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                           wait=wait_random(min=5, max=20)):
+            with attempt:
+                logger.info({
+                    "event": "BitmexManager.cancel_order",
+                    "order_id": order_id,
+                    "timestamp": datetime.now(),
+                })
+                return await client.cancel_order(order_id)
 
     @staticmethod
-    @retry(reraise=True,
-           stop=stop_after_attempt(3),
-           retry=retry_all(retry_if_not_result(_set_leverage_successfully),
-                           retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS)),
-           wait=wait_exponential(min=5, max=15))
     async def set_position_leverage(client: ccxtpro.bitmex, symbol: str, leverage: float):
-        logger.info({
-            "event": "BitmexManager.set_position_leverage",
-            "symbol": symbol,
-            "leverage": leverage,
-        })
-        return await client.privatePostPositionLeverage({"symbol": symbol, "leverage": leverage})
+        async for attempt in AsyncRetrying(reraise=True,
+                                           stop=stop_after_attempt(3),
+                                           retry=retry_unless_exception_type(FATAL_ORDER_EXCEPTIONS),
+                                           wait=wait_random(min=5, max=20)):
+            with attempt:
+                logger.info({
+                    "event": "BitmexManager.set_position_leverage",
+                    "symbol": symbol,
+                    "leverage": leverage,
+                    "timestamp": datetime.now(),
+                })
+                result = await client.privatePostPositionLeverage({"symbol": symbol, "leverage": leverage})
+                if result.get("leverage", None) is not None:
+                    return result
+                raise Exception('{}')
 
     async def watch_my_trades_stream(self, client_id: str, client: ccxtpro.bitmex):
         while self._watching_streams:
@@ -459,8 +519,8 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         await self.emit_my_trades_updated_event(client_id, data)
 
 
-def _is_successful_order(retry_state):
-    return retry_state.get("status", None) is not None
+def _is_successful_order(value):
+    return value.get("status", None) is not None
 
 
 bitmex_manager = BitmexManager(event_bus)
