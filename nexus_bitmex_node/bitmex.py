@@ -238,6 +238,7 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
         client: ccxtpro.bitmex,
         order: BitmexOrder,
         position: BitmexPosition,
+        ticker,
     ):
         async def execute_close():
             async for attempt in AsyncRetrying(reraise=True,
@@ -256,24 +257,25 @@ class BitmexManager(ExchangeEventEmitter, OrderEventEmitter):
                         "side": side,
                         "symbol": symbol,
                         "order_quantity": order_quantity,
-                        "price": order.price,
+                        "price": price,
                         "params": params,
                         "timestamp": datetime.now(),
                     })
-                    result = await client.create_order(symbol, order_type, side, order_quantity, order.price,
+                    result = await client.create_order(symbol, order_type, side, order_quantity, price,
                                                        params=params)
                     if result.get("status", None) is not None:
                         return result
                     raise Exception('{}')
 
         symbol = client.safe_symbol(order.symbol)
+        price = float(order.price or ticker.get("last_price_protected"))
 
         min_max_func = max if position.current_quantity > 0 else min
         order_quantity = -1 * min_max_func(1, round(order.percent * position.current_quantity)) / 100
 
         side = BitmexOrder.convert_order_side(order.side)
 
-        order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if order.price else OrderType.MARKET)
+        order_type = BitmexOrder.convert_order_type(OrderType.LIMIT if price else OrderType.MARKET)
 
         return await execute_close()
 

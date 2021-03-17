@@ -217,6 +217,7 @@ class ExchangeAccount(
             return
 
         order: BitmexOrder = create_order(main_order_data)
+        ticker = await self._data_store.get_ticker(self.account_id, order.symbol)
 
         position: typing.Optional[BitmexPosition] = await self._data_store.get_position(self.account_id, order.symbol)
         if not position:
@@ -224,7 +225,7 @@ class ExchangeAccount(
             return
 
         try:
-            close_order = await BitmexManager.close_position(self._client, order, position)
+            close_order = await BitmexManager.close_position(self._client, order, position, ticker)
             await self.emit_position_closed_event(message_id, close_order)
         except (BaseError, BadRequest) as e:
             error = e.args
