@@ -16,6 +16,12 @@ async def handle_create_order_message(message: IncomingMessage) -> bool:
     if not orders or not orders.get("main", {}).get("id", None):
         raise WrongOrderError(None)
 
+    for order_type, order_data in orders.items():
+        for key in ("price", "stopPrice"):
+            if order_data.get(key):
+                order_data[key] = float(order_data[key])
+        data["orders"][order_type] = order_data
+
     return data
 
 
