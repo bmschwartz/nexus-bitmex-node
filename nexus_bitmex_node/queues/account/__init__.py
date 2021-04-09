@@ -153,7 +153,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             self._heartbeat_task.cancel()
         self._heartbeat_task = asyncio.create_task(self._send_heartbeat(_HEARTBEAT_INTERVAL))
 
-    async def _on_account_deleted(self) -> None:
+    async def _on_account_deleted(self):
         await self._update_account_queue.cancel(self._update_account_consumer_tag)
         await cleanup_queue(self._update_account_queue, self._recv_bitmex_exchange, self._update_account_routing_key)
 
@@ -256,7 +256,7 @@ class AccountQueueManager(QueueManager, AccountEventEmitter, AccountEventListene
             message.ack()
 
     async def on_update_account_message(self, message: IncomingMessage):
-        async with message.process():
+        async with message.process(ignore_processed=True):
             account_id = None
 
             response_payload: dict = {}

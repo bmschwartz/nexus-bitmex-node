@@ -19,8 +19,9 @@ async def handle_create_account_message(message: IncomingMessage, account_manage
     api_key = data.get("apiKey")
     api_secret = data.get("apiSecret")
     account_id = data.get("accountId")
+    timestamp = data.get("timestamp")
 
-    await account_manager.connect(account_id, api_key, api_secret, message.timestamp)
+    await account_manager.connect(account_id, api_key, api_secret, timestamp)
     await event_emitter.emit_account_created_event(account_id)
 
     return account_id
@@ -36,11 +37,12 @@ async def handle_update_account_message(message: IncomingMessage, account_manage
     api_key = data.get("apiKey")
     api_secret = data.get("apiSecret")
     account_id = data.get("accountId")
+    timestamp = data.get("timestamp")
 
     if account_manager.account is None or account_id != account_manager.account.account_id:
         raise WrongAccountError(account_id)
 
-    await account_manager.connect(account_id, api_key, api_secret, message.timestamp)
+    await account_manager.connect(account_id, api_key, api_secret, timestamp)
     await event_emitter.emit_account_updated_event(account_id)
 
     return account_id
@@ -54,12 +56,13 @@ async def handle_delete_account_message(message: IncomingMessage, account_manage
         raise err
 
     account_id = data.get("accountId")
+    timestamp = data.get("timestamp")
 
     if account_manager.account is None or account_id != account_manager.account.account_id:
         raise WrongAccountError(account_id)
 
     account_started_at = account_manager.start_time or None
-    message_timestamp = message.timestamp
+    message_timestamp = timestamp
 
     if not account_started_at or not message_timestamp:
         return None
